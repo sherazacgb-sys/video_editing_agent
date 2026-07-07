@@ -59,6 +59,3 @@ python manage.py test <app>.<TestCase>  # run a single test case
 python manage.py shell                  # interactive shell with project loaded
 ```
 
-## Project status
-
-`DEBUG=True`, the dev `SECRET_KEY` is the auto-generated insecure key, `ALLOWED_HOSTS` is empty, and the database is SQLite. These all need hardening before any production deployment.
