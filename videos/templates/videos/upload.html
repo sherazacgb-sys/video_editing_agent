@@ -1,0 +1,102 @@
+{% extends "videos/base.html" %}
+
+{% block content %}
+<div class="h-full flex items-center justify-center p-8">
+  <div class="w-full max-w-lg">
+    <h1 class="text-2xl font-semibold text-gray-100 mb-2">Add captions to your video</h1>
+    <p class="text-sm text-gray-500 mb-8 font-mono">Upload a video clip and get it back with burned-in captions.</p>
+
+    <form method="post" enctype="multipart/form-data" id="upload-form">
+      {% csrf_token %}
+
+      <!-- Drop zone: switches between idle state, preview state, and uploading state -->
+      <label for="video-input"
+             id="drop-zone"
+             class="relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-[#2a2a2a] rounded-xl cursor-pointer hover:border-amber-500 hover:bg-[#1e1e1e] transition-colors group overflow-hidden">
+
+        <!-- Idle prompt (hidden once a file is chosen) -->
+        <div id="idle-state">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-gray-600 group-hover:text-amber-500 mb-3 transition-colors mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="text-sm text-gray-400 group-hover:text-gray-200 transition-colors text-center">
+            <span class="font-semibold">Click to upload</span> or drag and drop
+          </p>
+          <p class="text-xs text-gray-600 mt-1 font-mono text-center">MP4, MOV, AVI</p>
+        </div>
+
+        <!-- Video thumbnail preview (hidden until file chosen) -->
+        <!-- Shown after file selection so the user can confirm they picked the right clip -->
+        <div id="preview-state" class="hidden absolute inset-0 flex flex-col items-center justify-center">
+          <video id="preview-video"
+                 class="w-full h-full object-cover"
+                 muted
+                 preload="metadata"
+                 onloadedmetadata="this.currentTime=0.1">
+          </video>
+          <!-- Semi-transparent overlay with filename so it's still legible over the thumbnail -->
+          <div class="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-2 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+            </svg>
+            <span id="file-name" class="text-xs text-gray-200 font-mono truncate"></span>
+          </div>
+        </div>
+
+        <!-- Uploading spinner (hidden until form is submitted) -->
+        <div id="uploading-state" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#121212]/80">
+          <!-- Spinner ring -->
+          <svg class="w-10 h-10 text-amber-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+            <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <p class="text-sm text-gray-400 font-mono">Uploading…</p>
+        </div>
+
+        <input id="video-input" name="video" type="file" accept="video/*" class="hidden">
+      </label>
+
+      <button type="submit"
+              id="submit-btn"
+              class="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled>
+        Upload & Process
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const input       = document.getElementById('video-input');
+  const btn         = document.getElementById('submit-btn');
+  const fileName    = document.getElementById('file-name');
+  const idleState   = document.getElementById('idle-state');
+  const previewState   = document.getElementById('preview-state');
+  const uploadingState = document.getElementById('uploading-state');
+  const previewVideo   = document.getElementById('preview-video');
+
+  // When the user picks a file: show the thumbnail preview and enable submit
+  input.addEventListener('change', () => {
+    if (!input.files.length) return;
+    const file = input.files[0];
+
+    // Create a local object URL so the <video> element can read the file without uploading it
+    previewVideo.src = URL.createObjectURL(file);
+    fileName.textContent = file.name;
+
+    // Switch from idle state to preview state
+    idleState.classList.add('hidden');
+    previewState.classList.remove('hidden');
+
+    btn.disabled = false;
+  });
+
+  // When the form is submitted: swap preview for the uploading spinner and lock the button
+  document.getElementById('upload-form').addEventListener('submit', () => {
+    previewState.classList.add('hidden');
+    uploadingState.classList.remove('hidden');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,1308 @@
+{% extends "videos/base.html" %}
+{% load static %}
+
+{% block aside_class %}w-80{% endblock %}
+
+{% block sidebar_body %}
+<div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between">
+  <p class="text-xs text-gray-500 font-mono">Agent</p>
+  <button id="new-chat-btn" onclick="startNewChat()"
+          class="text-xs text-gray-600 hover:text-amber-500 font-mono transition-colors">
+    New Chat
+  </button>
+</div>
+<!-- Session history panel — a floating dropdown (not an inline expand) so opening
+     it never reflows the chat feed below; same absolute+outside-click pattern as
+     the profile menu in base.html -->
+<div class="relative border-b border-[#2a2a2a]" id="history-container">
+  <button onclick="toggleHistory(event)"
+          class="w-full px-4 py-2 flex items-center justify-between hover:bg-[#222] transition-colors">
+    <p class="text-xs text-gray-500 font-mono">History</p>
+    <span id="history-toggle" class="text-xs text-gray-600 font-mono">&#x25BE; Show</span>
+  </button>
+  <!-- absolute + top-full: overlays on top of the chat feed instead of pushing it down;
+       styled-scroll keeps this scrollbar consistent with the rest of the app -->
+  <div id="history-list"
+       class="hidden absolute left-2 right-2 top-full mt-1 z-20 overflow-y-auto max-h-44 px-2 py-2 space-y-0.5
+              styled-scroll bg-[#252525] border border-[#2a2a2a] rounded-xl shadow-xl"></div>
+</div>
+
+<!-- styled-scroll: keep this scrollbar consistent with the rest of the app -->
+<div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0 styled-scroll"></div>
+<div class="px-3 py-3 border-t border-[#2a2a2a] flex gap-2">
+  <input id="chat-input" type="text" placeholder="Tell the agent what to do…"
+         class="flex-1 bg-[#121212] text-gray-200 font-mono text-sm px-3 py-2 rounded-lg border border-[#2a2a2a] outline-none focus:border-amber-500 transition-colors"
+         onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }">
+  <button id="chat-send" onclick="sendChat()"
+          class="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm px-4 py-2 rounded-lg transition-colors">
+    Send
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col min-h-full">
+
+  <!-- Header bar -->
+  <div class="sticky top-0 z-10 flex items-center gap-4 px-6 py-3 border-b border-[#2a2a2a] bg-[#1e1e1e]">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <h1 class="text-sm font-semibold text-gray-100 font-mono truncate">{{ job.input_file.name|slice:"8:" }}</h1>
+        <span class="text-xs text-gray-600 font-mono flex-shrink-0">{{ job.created_at|date:"Y-m-d H:i" }}</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <span data-badge="status" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold
+        {% if job.status == 'done' %}bg-green-900/40 text-green-400
+        {% elif job.status == 'failed' %}bg-red-900/40 text-red-400
+        {% elif job.status == 'processing' %}bg-amber-900/40 text-amber-400
+        {% else %}bg-[#2a2a2a] text-gray-400{% endif %}">
+        {% if job.status == 'processing' %}
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+        {% endif %}
+        {{ job.get_status_display }}
+      </span>
+      {% if job.stage %}
+        <span id="stage-badge" class="text-xs text-gray-600 font-mono">Stage: {{ job.get_stage_display }}</span>
+      {% endif %}
+    </div>
+
+    <div id="export-area" class="flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <select id="export-resolution"
+                class="bg-[#2a2a2a] text-gray-300 text-xs font-mono px-2 py-2 rounded-lg border border-[#3a3a3a] outline-none focus:border-amber-500 transition-colors">
+          <option value="original">Original</option>
+          <option value="1080p">1080p</option>
+          <option value="720p">720p</option>
+          <option value="480p">480p</option>
+        </select>
+        <!-- always show Export so the user can re-render after editing captions -->
+        <button onclick="runPipeline('render')"
+                class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          Export
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle row: video player + pipeline panel -->
+  <div class="flex gap-6 p-6 h-[calc(100vh-3.5rem)]">
+
+    <!-- Video player -->
+    <div class="flex-[3] bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col min-h-0">
+      <p class="text-xs text-gray-500 font-mono mb-3">
+        {% if job.stage == 'captioned' or job.stage == 'rendered' %}Preview{% else %}Original{% endif %}
+      </p>
+      <div class="relative flex-1 min-h-0">
+        <video id="preview-video" src="{{ job.input_file.url }}" controls class="w-full h-full object-contain rounded-lg block"></video>
+        <canvas id="preview-canvas" class="absolute pointer-events-none rounded-lg"></canvas>
+      </div>
+    </div>
+
+    <!-- Pipeline panel -->
+    <div id="pipeline-panel" class="flex-[2] bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col min-h-[240px]">
+      <div class="flex items-center justify-between mb-3">
+        <!-- Tab bar: switches which of the three bodies below (#tab-pipeline/#tab-assets/#tab-welcome) is shown -->
+        <div class="flex items-center gap-4">
+          <button onclick="switchTab('pipeline')" data-tab-btn="pipeline"
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-amber-400 border-amber-500">
+            Pipeline
+          </button>
+          <button onclick="switchTab('assets')" data-tab-btn="assets"
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+            Assets
+          </button>
+          <button onclick="switchTab('fonts')" data-tab-btn="fonts"
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+            Fonts
+          </button>
+          <button onclick="switchTab('welcome')" data-tab-btn="welcome"
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+            Welcome
+          </button>
+        </div>
+        <button onclick="togglePipeline()" id="pipeline-toggle"
+                class="text-gray-600 hover:text-gray-400 transition-colors text-xs font-mono">
+          &#x25B4; Hide
+        </button>
+      </div>
+      <div id="pipeline-body" class="flex flex-col flex-1 min-h-0">
+
+      <!-- Pipeline tab: status/progress + action buttons, populated by updatePipelinePanel() -->
+      <div id="tab-pipeline" class="flex flex-col flex-1 min-h-0">
+        <div id="pipeline-state"></div>
+      </div>
+
+      <!-- Assets tab: upload control + transcript/caption/image asset sections, populated by updateAssetsTab(); starts hidden since Pipeline is the default tab -->
+      <div id="tab-assets" class="hidden flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs text-gray-500 font-mono">Upload an image or PDF, then ask the agent to place it</p>
+          <button onclick="document.getElementById('asset-upload-input').click()"
+                  class="flex-shrink-0 text-xs font-mono bg-[#2a2a2a] hover:bg-[#333] text-gray-300 px-3 py-1.5 rounded-lg transition-colors">
+            + Upload
+          </button>
+          <!-- accept mirrors _IMAGE_EXTS/_PDF_EXTS in videos/views.py; server re-validates regardless -->
+          <input id="asset-upload-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.pdf"
+                 class="hidden" onchange="uploadAssetFile(this.files[0])">
+        </div>
+        <div id="asset-upload-status" class="text-xs font-mono mb-2 empty:mb-0"></div>
+        <div id="assets-state"></div>
+      </div>
+
+      <!-- Fonts tab: read-only preview grid, one card per _AVAILABLE_FONTS entry
+           (pipeline/tools.py), each rendered in its own @font-face so you can see
+           the typeface before naming it. Clicking a card inserts the font name
+           into #chat-input — filled in by buildFontLibrary() below. -->
+      <div id="tab-fonts" class="hidden flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
+        <p class="text-xs text-gray-500 font-mono mb-2">Click a font to insert its name into the chat box</p>
+        <div id="font-library" class="grid grid-cols-2 gap-2"></div>
+      </div>
+
+      <!-- Welcome tab: fading tip carousel; text is set by the JS tip carousel below, starts hidden -->
+      <div id="tab-welcome" class="hidden flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
+        <p id="welcome-tip" class="text-sm text-gray-400 font-mono leading-relaxed transition-opacity duration-500 opacity-0"></p>
+      </div>
+
+      </div><!-- /pipeline-body -->
+    </div>
+
+  </div>
+
+  <!-- Asset timeline (populated by JS) -->
+  <div id="timeline-section" class="px-6 pb-6 hidden">
+    <div class="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4">
+      <p class="text-xs text-gray-500 font-mono mb-4">Timeline</p>
+      <div id="timeline-tracks" class="space-y-2"></div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+/* Text-overlay fonts: one @font-face per weight/style file so the canvas preview
+   (drawFrame() below) can render the same face ffmpeg picks at render time via
+   pipeline/overlay.py's fontsdir. Family names here must match _AVAILABLE_FONTS
+   in pipeline/tools.py exactly — that's what the chat agent is allowed to set. */
+@font-face { font-family: 'Roboto'; src: url("{% static 'fonts/Roboto/static/Roboto-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Roboto'; src: url("{% static 'fonts/Roboto/static/Roboto-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Roboto'; src: url("{% static 'fonts/Roboto/static/Roboto-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Roboto'; src: url("{% static 'fonts/Roboto/static/Roboto-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Montserrat'; src: url("{% static 'fonts/Montserrat/Montserrat-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Montserrat'; src: url("{% static 'fonts/Montserrat/Montserrat-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Montserrat'; src: url("{% static 'fonts/Montserrat/Montserrat-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Montserrat'; src: url("{% static 'fonts/Montserrat/Montserrat-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Oswald'; src: url("{% static 'fonts/Oswald/Oswald-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Oswald'; src: url("{% static 'fonts/Oswald/Oswald-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+
+@font-face { font-family: 'Gelasio'; src: url("{% static 'fonts/Gelasio/Gelasio-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Gelasio'; src: url("{% static 'fonts/Gelasio/Gelasio-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Gelasio'; src: url("{% static 'fonts/Gelasio/Gelasio-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Gelasio'; src: url("{% static 'fonts/Gelasio/Gelasio-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Anton'; src: url("{% static 'fonts/Anton/Anton-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Bebas Neue'; src: url("{% static 'fonts/BebasNeue/BebasNeue-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Archivo Black'; src: url("{% static 'fonts/ArchivoBlack/ArchivoBlack-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Bangers'; src: url("{% static 'fonts/Bangers/Bangers-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Alfa Slab One'; src: url("{% static 'fonts/AlfaSlabOne/AlfaSlabOne-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Luckiest Guy'; src: url("{% static 'fonts/LuckiestGuy/LuckiestGuy-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Caveat'; src: url("{% static 'fonts/Caveat/Caveat-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Caveat'; src: url("{% static 'fonts/Caveat/Caveat-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+
+@font-face { font-family: 'Pacifico'; src: url("{% static 'fonts/Pacifico/Pacifico-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Dancing Script'; src: url("{% static 'fonts/DancingScript/DancingScript-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Dancing Script'; src: url("{% static 'fonts/DancingScript/DancingScript-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+
+@font-face { font-family: 'Permanent Marker'; src: url("{% static 'fonts/PermanentMarker/PermanentMarker-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Kalam'; src: url("{% static 'fonts/Kalam/Kalam-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Kalam'; src: url("{% static 'fonts/Kalam/Kalam-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+
+@font-face { font-family: 'Playfair Display'; src: url("{% static 'fonts/PlayfairDisplay/PlayfairDisplay-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Playfair Display'; src: url("{% static 'fonts/PlayfairDisplay/PlayfairDisplay-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Playfair Display'; src: url("{% static 'fonts/PlayfairDisplay/PlayfairDisplay-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Playfair Display'; src: url("{% static 'fonts/PlayfairDisplay/PlayfairDisplay-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Merriweather'; src: url("{% static 'fonts/Merriweather/Merriweather-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Merriweather'; src: url("{% static 'fonts/Merriweather/Merriweather-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Merriweather'; src: url("{% static 'fonts/Merriweather/Merriweather-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Merriweather'; src: url("{% static 'fonts/Merriweather/Merriweather-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Lora'; src: url("{% static 'fonts/Lora/Lora-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Lora'; src: url("{% static 'fonts/Lora/Lora-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Lora'; src: url("{% static 'fonts/Lora/Lora-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Lora'; src: url("{% static 'fonts/Lora/Lora-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Libre Baskerville'; src: url("{% static 'fonts/LibreBaskerville/LibreBaskerville-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Libre Baskerville'; src: url("{% static 'fonts/LibreBaskerville/LibreBaskerville-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Libre Baskerville'; src: url("{% static 'fonts/LibreBaskerville/LibreBaskerville-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Libre Baskerville'; src: url("{% static 'fonts/LibreBaskerville/LibreBaskerville-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'JetBrains Mono'; src: url("{% static 'fonts/JetBrainsMono/JetBrainsMono-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'JetBrains Mono'; src: url("{% static 'fonts/JetBrainsMono/JetBrainsMono-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'JetBrains Mono'; src: url("{% static 'fonts/JetBrainsMono/JetBrainsMono-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'JetBrains Mono'; src: url("{% static 'fonts/JetBrainsMono/JetBrainsMono-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Space Mono'; src: url("{% static 'fonts/SpaceMono/SpaceMono-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Space Mono'; src: url("{% static 'fonts/SpaceMono/SpaceMono-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Space Mono'; src: url("{% static 'fonts/SpaceMono/SpaceMono-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Space Mono'; src: url("{% static 'fonts/SpaceMono/SpaceMono-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'IBM Plex Mono'; src: url("{% static 'fonts/IBMPlexMono/IBMPlexMono-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'IBM Plex Mono'; src: url("{% static 'fonts/IBMPlexMono/IBMPlexMono-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'IBM Plex Mono'; src: url("{% static 'fonts/IBMPlexMono/IBMPlexMono-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'IBM Plex Mono'; src: url("{% static 'fonts/IBMPlexMono/IBMPlexMono-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Roboto Mono'; src: url("{% static 'fonts/RobotoMono/RobotoMono-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Roboto Mono'; src: url("{% static 'fonts/RobotoMono/RobotoMono-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Roboto Mono'; src: url("{% static 'fonts/RobotoMono/RobotoMono-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Roboto Mono'; src: url("{% static 'fonts/RobotoMono/RobotoMono-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Inter'; src: url("{% static 'fonts/Inter/Inter-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Inter'; src: url("{% static 'fonts/Inter/Inter-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Inter'; src: url("{% static 'fonts/Inter/Inter-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Inter'; src: url("{% static 'fonts/Inter/Inter-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+@font-face { font-family: 'Poppins'; src: url("{% static 'fonts/Poppins/Poppins-Regular.ttf' %}"); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Poppins'; src: url("{% static 'fonts/Poppins/Poppins-Bold.ttf' %}"); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Poppins'; src: url("{% static 'fonts/Poppins/Poppins-Italic.ttf' %}"); font-weight: 400; font-style: italic; }
+@font-face { font-family: 'Poppins'; src: url("{% static 'fonts/Poppins/Poppins-BoldItalic.ttf' %}"); font-weight: 700; font-style: italic; }
+
+.chat-prose p          { margin-bottom: 0.5rem; }
+.chat-prose p:last-child { margin-bottom: 0; }
+.chat-prose h1,.chat-prose h2,.chat-prose h3 { font-weight: 600; margin: 0.75rem 0 0.25rem; color: #f5f5f5; }
+.chat-prose h1 { font-size: 1rem; }
+.chat-prose h2 { font-size: 0.9rem; }
+.chat-prose h3 { font-size: 0.85rem; }
+.chat-prose ul,.chat-prose ol { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.chat-prose ul { list-style-type: disc; }
+.chat-prose ol { list-style-type: decimal; }
+.chat-prose li { margin-bottom: 0.2rem; }
+.chat-prose strong { color: #f5f5f5; font-weight: 600; }
+.chat-prose code { background: #121212; color: #f59e0b; font-family: monospace; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+.chat-prose pre  { background: #121212; padding: 0.6rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.5rem; }
+.chat-prose pre code { background: none; padding: 0; color: #d4d4d4; }
+.chat-prose hr   { border-color: #2a2a2a; margin: 0.5rem 0; }
+</style>
+
+<script>
+const JOB_PK = {{ job.pk }};
+const CSRF_URL_TRANSCRIBE = "{% url 'run_transcribe' job.pk %}";
+const CSRF_URL_CAPTIONS   = "{% url 'run_build_captions' job.pk %}";
+const CSRF_URL_RENDER     = "{% url 'run_render' job.pk %}";
+
+let currentAssets = [];
+// Cache of loaded <img> elements for image assets, keyed by URL — drawFrame()
+// runs on every video timeupdate, so images must already be loaded/decoded by
+// the time they're needed rather than re-fetched per frame.
+const imageAssetCache = {};
+
+function getCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? m[1] : '';
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+// Active session ID for this job, persisted in localStorage so reloads resume
+// the same conversation thread without losing a pending agent response.
+let sessionId = null;
+
+// Count of messages already rendered; polling only appends past this index.
+let displayedMessageCount = 0;
+
+// Polling state for reload-recovery (see startPolling / stopPolling below).
+let pollTimer = null;
+let pollCount = 0;
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_TICKS = 60; // 2 min ceiling; agent rarely takes longer
+
+// toolsUsed: names of tools actually invoked to produce this reply (empty for
+// user messages, and empty for an assistant reply that called no tool at all —
+// a reply describing a change with no chip is a sign it may not have happened).
+function appendMessage(role, text, toolsUsed) {
+  const wrap = document.getElementById('chat-messages');
+  const row = document.createElement('div');
+  row.className = role === 'user' ? 'flex justify-end' : 'flex flex-col items-start';
+  if (toolsUsed && toolsUsed.length) {
+    const chips = document.createElement('div');
+    chips.className = 'flex gap-1 flex-wrap mb-1 px-0.5';
+    // One chip per tool call, in call order; duplicates (e.g. two update_asset
+    // calls in one turn) are shown separately rather than de-duplicated.
+    chips.innerHTML = toolsUsed.map(name =>
+      `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400">&#x1F527; ${escapeHtml(name)}</span>`
+    ).join('');
+    row.appendChild(chips);
+  }
+  const bubble = document.createElement('div');
+  if (role === 'user') {
+    bubble.className = 'max-w-[85%] bg-amber-500 text-black text-sm font-mono px-3 py-2 rounded-xl rounded-br-sm';
+    bubble.textContent = text;
+  } else {
+    bubble.className = 'w-full bg-[#2a2a2a] text-gray-200 text-sm px-3 py-2 rounded-xl rounded-bl-sm chat-prose';
+    bubble.innerHTML = marked.parse(text);
+  }
+  row.appendChild(bubble);
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('chat-send');
+  const input = document.getElementById('chat-input');
+  btn.disabled = on;
+  input.disabled = on;
+  btn.textContent = on ? '…' : 'Send';
+}
+
+// Appends a bouncing-dots bubble to the feed so the user knows the agent is
+// working; removed by hideTyping() once the reply (or an error) arrives.
+function showTyping() {
+  if (document.getElementById('typing-indicator')) return; // already showing
+  const wrap = document.getElementById('chat-messages');
+  const row = document.createElement('div');
+  row.id = 'typing-indicator';
+  row.className = 'flex justify-start';
+  row.innerHTML = `
+    <div class="bg-[#2a2a2a] px-3 py-2.5 rounded-xl rounded-bl-sm flex gap-1 items-center">
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.3s]"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.15s]"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"></span>
+    </div>`;
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function hideTyping() {
+  const row = document.getElementById('typing-indicator');
+  if (row) row.remove();
+}
+
+// ── Session management ────────────────────────────────────────────────────────
+
+async function ensureSession() {
+  // Reuse the stored session for this job if it exists; create one otherwise.
+  const stored = localStorage.getItem('chatSession_' + JOB_PK);
+  if (stored) {
+    sessionId = stored;
+    return;
+  }
+  const res = await fetch(`/job/${JOB_PK}/chat/session/new/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+  });
+  const data = await res.json();
+  sessionId = data.session_id;
+  localStorage.setItem('chatSession_' + JOB_PK, sessionId);
+}
+
+async function startNewChat() {
+  stopPolling();
+  const res = await fetch(`/job/${JOB_PK}/chat/session/new/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+  });
+  const data = await res.json();
+  sessionId = data.session_id;
+  localStorage.setItem('chatSession_' + JOB_PK, sessionId);
+  document.getElementById('chat-messages').innerHTML = '';
+  displayedMessageCount = 0;
+  setLoading(false);
+  // Refresh the history list so the new session appears highlighted.
+  await loadSessionList();
+}
+
+async function switchSession(id) {
+  stopPolling();
+  sessionId = String(id);
+  localStorage.setItem('chatSession_' + JOB_PK, sessionId);
+  document.getElementById('chat-messages').innerHTML = '';
+  displayedMessageCount = 0;
+  setLoading(false);
+  // Close the dropdown now that a session's been picked, like any other selection menu.
+  document.getElementById('history-list').classList.add('hidden');
+  document.getElementById('history-toggle').innerHTML = '&#x25BE; Show';
+  await loadHistory();
+  await loadSessionList();
+}
+
+// ── History panel ─────────────────────────────────────────────────────────────
+
+function toggleHistory(e) {
+  if (e) e.stopPropagation(); // stop the click reaching document's outside-click handler below, which would immediately re-close it
+  const list = document.getElementById('history-list');
+  const toggle = document.getElementById('history-toggle');
+  const nowHidden = list.classList.toggle('hidden');
+  toggle.innerHTML = nowHidden ? '&#x25BE; Show' : '&#x25B4; Hide';
+}
+
+// Close the history dropdown when the user clicks anywhere outside it
+// (mirrors the profile-menu outside-click handler in base.html).
+document.addEventListener('click', function (e) {
+  const container = document.getElementById('history-container');
+  if (container && !container.contains(e.target)) {
+    const list = document.getElementById('history-list');
+    const toggle = document.getElementById('history-toggle');
+    if (list) list.classList.add('hidden');
+    if (toggle) toggle.innerHTML = '&#x25BE; Show';
+  }
+});
+
+async function loadSessionList() {
+  try {
+    const res = await fetch(`/job/${JOB_PK}/chat/sessions/`);
+    const data = await res.json();
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+    (data.sessions || []).forEach(s => {
+      const isActive = String(s.id) === String(sessionId);
+      const row = document.createElement('div');
+      row.className = 'px-2 py-1.5 rounded text-xs font-mono truncate transition-colors ' +
+        (isActive
+          ? 'bg-amber-500/15 text-amber-400 cursor-default'
+          : 'text-gray-500 hover:bg-[#2a2a2a] hover:text-gray-300 cursor-pointer');
+      // Format the timestamp to a short "Jul 2, 15:30" style label.
+      const d = new Date(s.created_at);
+      const stamp = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  + ', ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      const preview = s.preview || '<span class="text-gray-700 italic">Empty</span>';
+      row.innerHTML = `<span class="text-gray-600 mr-1.5">${stamp}</span>${preview}`;
+      if (!isActive) row.addEventListener('click', () => switchSession(s.id));
+      list.appendChild(row);
+    });
+  } catch (_) { /* silently skip if fetch fails */ }
+}
+
+// ── Reload-recovery polling ───────────────────────────────────────────────────
+
+// If the page is loaded while an agent.invoke() is in progress on the server,
+// the last persisted message is the user's turn (no assistant reply yet).
+// startPolling() detects new messages every POLL_INTERVAL_MS and appends them,
+// so the UI self-recovers when the server finishes — no re-send required.
+
+function startPolling() {
+  pollCount = 0;
+  pollTimer = setInterval(async () => {
+    pollCount++;
+    if (pollCount > POLL_MAX_TICKS) {
+      // Agent took too long — surface an error and give up.
+      stopPolling();
+      setLoading(false);
+      hideTyping();
+      appendMessage('assistant', 'The agent took too long to respond. Please try your message again.');
+      return;
+    }
+    try {
+      const res = await fetch(`/job/${JOB_PK}/chat/history/?session_id=${sessionId}`);
+      const data = await res.json();
+      const msgs = data.messages || [];
+      // Only append messages that have arrived since the page loaded.
+      if (msgs.length > displayedMessageCount) hideTyping(); // clear dots before inserting real messages
+      msgs.slice(displayedMessageCount).forEach(m => appendMessage(m.role, m.content));
+      displayedMessageCount = msgs.length;
+      // Stop polling once an assistant reply is the last message.
+      if (msgs.length && msgs[msgs.length - 1].role === 'assistant') {
+        stopPolling();
+        setLoading(false);
+        await refreshJobState();
+      } else {
+        showTyping(); // still waiting — keep the indicator at the bottom of the feed
+      }
+    } catch (_) { /* network blip — keep polling */ }
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// ── History load (on page load / new chat) ────────────────────────────────────
+
+async function loadHistory() {
+  try {
+    const res = await fetch(`/job/${JOB_PK}/chat/history/?session_id=${sessionId}`);
+    const data = await res.json();
+    const msgs = data.messages || [];
+    msgs.forEach(m => appendMessage(m.role, m.content, m.tools_used));
+    displayedMessageCount = msgs.length;
+    // If the last stored message is a user turn, the agent is still running
+    // (user message is saved before agent.invoke). Start polling to recover.
+    if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+      setLoading(true);
+      showTyping();
+      startPolling();
+    }
+  } catch (_) { /* silently ignore on first load */ }
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !sessionId) return;
+  appendMessage('user', text);
+  displayedMessageCount++; // account for the user message we just rendered
+  input.value = '';
+  setLoading(true);
+  showTyping();
+  try {
+    const res = await fetch(`/job/${JOB_PK}/chat/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      // session_id scopes the message to the active conversation thread.
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+    const data = await res.json();
+    hideTyping();
+    appendMessage('assistant', data.reply || 'Done.', data.tools_used);
+    displayedMessageCount++;
+    await refreshJobState();
+  } catch (e) {
+    hideTyping();
+    appendMessage('assistant', 'Something went wrong. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+async function init() {
+  await ensureSession();
+  await Promise.all([loadHistory(), loadSessionList()]);
+}
+init().catch(() => {});
+
+// ── State refresh ─────────────────────────────────────────────────────────────
+
+async function refreshJobState() {
+  const data = await fetch(`/job/${JOB_PK}/state/`).then(r => r.json());
+  updateBadges(data);
+  updatePipelinePanel(data);
+  updateAssetsTab(data);
+  updateExportArea(data);
+  updateTimeline(data.assets);
+  currentAssets = data.assets || [];
+  drawFrame();
+  // If the video is paused and no caption is active right now, scrub to the
+  // nearest asset so the user immediately sees the result of the agent's edit.
+  const _v = document.getElementById('preview-video');
+  if (_v && _v.paused && currentAssets.length) {
+    const t = _v.currentTime;
+    const hasActive = currentAssets.some(a => a.start <= t && a.end > t);
+    if (!hasActive) {
+      _v.currentTime = currentAssets[0].start + 0.05;
+      // timeupdate will fire drawFrame after the seek
+    }
+  }
+}
+
+// Capitalizes a single-word status/stage value for display; the raw lowercase
+// value itself keeps driving colorMap lookups and stage comparisons elsewhere.
+function capitalize(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function updateBadges({ status, stage, status_display, stage_display }) {
+  const statusBadge = document.querySelector('[data-badge="status"]');
+  if (statusBadge) {
+    const colorMap = {
+      done: 'bg-green-900/40 text-green-400',
+      failed: 'bg-red-900/40 text-red-400',
+      processing: 'bg-amber-900/40 text-amber-400',
+    };
+    statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold ' +
+      (colorMap[status] || 'bg-[#2a2a2a] text-gray-400');
+    statusBadge.innerHTML = (status === 'processing'
+      ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>'
+      : '') + (status_display || capitalize(status));
+  }
+  const stageBadge = document.getElementById('stage-badge');
+  if (stageBadge) stageBadge.textContent = stage ? 'Stage: ' + (stage_display || capitalize(stage)) : '';
+}
+
+function updateExportArea({ stage, output_url, assets }) {
+  const area = document.getElementById('export-area');
+  if (!area) return;
+  area.innerHTML = `<div class="flex items-center gap-2">
+    <select id="export-resolution"
+      class="bg-[#2a2a2a] text-gray-300 text-xs font-mono px-2 py-2 rounded-lg border border-[#3a3a3a] outline-none focus:border-amber-500 transition-colors">
+      <option value="original">Original</option>
+      <option value="1080p">1080p</option>
+      <option value="720p">720p</option>
+      <option value="480p">480p</option>
+    </select>
+    <button onclick="runPipeline('render')"
+      class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Export</button>
+  </div>`;
+}
+
+function updatePipelinePanel({ status, stage, assets }) {
+  const el = document.getElementById('pipeline-state');
+  if (!el) return;
+  const count = (assets || []).length;
+
+  if (status === 'processing') {
+    const label = !stage ? 'Transcribing…' : stage === 'transcribed' ? 'Building Assets…' : 'Exporting…';
+    el.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center py-6">
+      <div class="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p class="text-amber-400 font-mono text-sm">${label}</p>
+    </div>`;
+  } else if (status === 'failed') {
+    el.innerHTML = `<div class="flex flex-col items-center justify-center text-center gap-3 py-4">
+      <p class="text-red-400 font-mono text-sm font-semibold">Failed</p>
+      <button onclick="runPipeline('transcribe')"
+        class="mt-2 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">Retry</button>
+    </div>`;
+  } else if (!stage) {
+    el.innerHTML = `<div class="flex flex-col items-center justify-center text-center gap-3 py-4">
+      <p class="text-gray-500 font-mono text-sm">Ready to Transcribe</p>
+      <button onclick="runPipeline('transcribe')"
+        class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">Transcribe</button>
+    </div>`;
+  } else if (stage === 'transcribed') {
+    el.innerHTML = `<div class="flex flex-col gap-3 py-2">
+      <span class="text-green-400 font-mono text-xs">✓ Transcript Ready</span>
+      <button onclick="runPipeline('captions')"
+        class="w-full bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold py-2.5 rounded-lg transition-colors">Build Assets</button>
+    </div>`;
+  } else if (stage === 'captioned' || stage === 'rendered') {
+    el.innerHTML = `<div class="flex flex-col gap-2 py-2">
+      <span class="text-green-400 font-mono text-xs">✓ ${count} Asset(s) Ready</span>
+      <p class="text-gray-500 font-mono text-xs leading-relaxed">Preview is live in the player. Use the agent to adjust captions, then export when ready.</p>
+    </div>`;
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+// Not persisted across reloads — the Pipeline tab is always the one shown on page load.
+let activeTab = 'pipeline';
+
+function switchTab(name) {
+  activeTab = name;
+  ['pipeline', 'assets', 'fonts', 'welcome'].forEach(t => {
+    // Show only the matching tab body; the others use the same hidden+flex-col
+    // pattern as #pipeline-body's own show/hide toggle above.
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
+    const btn = document.querySelector(`[data-tab-btn="${t}"]`);
+    btn.classList.toggle('text-amber-400', t === name);
+    btn.classList.toggle('border-amber-500', t === name);
+    btn.classList.toggle('text-gray-500', t !== name);
+    btn.classList.toggle('border-transparent', t !== name);
+  });
+  // Only run the tip-rotation timer while its tab is actually visible.
+  if (name === 'welcome') startTipCarousel();
+  else stopTipCarousel();
+}
+
+// Minimal HTML-escaping for text inserted via innerHTML below — transcript and
+// caption text originate from Whisper output on a user-uploaded file, so they
+// must be treated as untrusted rather than injected as raw markup.
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Which Assets-tab sections are expanded, keyed by section id — kept outside
+// updateAssetsTab() because that function rebuilds #assets-state's innerHTML on
+// every job_state poll, which would otherwise reset a section the user just opened.
+// Empty by default so every section starts collapsed.
+const expandedAssetSections = new Set();
+
+// Human-readable labels for known asset `type` values; anything else falls back
+// to a capitalized version of the raw type string so new pipeline stages still
+// get a readable section instead of breaking.
+const ASSET_TYPE_LABEL = { caption: 'Captions', text: 'Text Overlays', image: 'Images' };
+
+function toggleAssetSection(key) {
+  const body = document.getElementById(`asset-section-body-${key}`);
+  const toggle = document.getElementById(`asset-section-toggle-${key}`);
+  if (!body || !toggle) return;
+  const nowHidden = body.classList.toggle('hidden');
+  toggle.innerHTML = nowHidden ? '&#x25BE;' : '&#x25B4;';
+  if (nowHidden) expandedAssetSections.delete(key);
+  else expandedAssetSections.add(key);
+}
+
+// Renders one collapsible section (header button + body) for the Assets tab.
+// `count` is omitted from the header when null (used for the Transcript section).
+function renderAssetSection(key, label, count, bodyHtml) {
+  const isOpen = expandedAssetSections.has(key);
+  return `<div class="mb-2 border border-[#2a2a2a] rounded-lg overflow-hidden">
+    <button onclick="toggleAssetSection('${key}')"
+            class="w-full flex items-center justify-between px-3 py-2 bg-[#181818] hover:bg-[#1f1f1f] transition-colors">
+      <span class="text-xs text-gray-300 font-mono">${label}${count != null ? ` (${count})` : ''}</span>
+      <span id="asset-section-toggle-${key}" class="text-xs text-gray-600 font-mono">${isOpen ? '&#x25B4;' : '&#x25BE;'}</span>
+    </button>
+    <div id="asset-section-body-${key}" class="${isOpen ? '' : 'hidden'} p-3 border-t border-[#2a2a2a]">
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+
+// One row for an asset already on the timeline — text-based assets show their
+// text, image assets (no `content.text`) show the filename instead.
+function _assetRowHtml(a) {
+  const label = a.type === 'image'
+    ? `🖼 ${escapeHtml((a.content && a.content.name) || 'image')}`
+    : escapeHtml((a.content && a.content.text) || '');
+  return `<div class="flex items-center justify-between bg-[#121212] border border-[#2a2a2a] rounded-lg px-3 py-2">
+    <span class="text-xs text-gray-300 font-mono truncate flex-1 mr-2">${label}</span>
+    <span class="text-[10px] text-gray-600 font-mono flex-shrink-0">${a.start.toFixed(1)}s–${a.end.toFixed(1)}s</span>
+  </div>`;
+}
+
+function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
+  const el = document.getElementById('assets-state');
+  if (!el) return;
+
+  // Transcript is always its own section, placeholder until transcribe_video has populated job.transcript.
+  const transcriptBody = transcript_text
+    ? `<div class="bg-[#121212] border border-[#2a2a2a] rounded-lg p-3 text-xs text-gray-300 font-mono leading-relaxed max-h-40 overflow-y-auto styled-scroll whitespace-pre-wrap">${escapeHtml(transcript_text)}</div>`
+    : `<p class="text-xs text-gray-600 font-mono">No transcript yet — run Transcribe on the Pipeline tab.</p>`;
+  let html = renderAssetSection('transcript', 'Transcript', null, transcriptBody);
+
+  // Uploaded-but-not-yet-placed files — just a reference list; ask the agent in
+  // chat to place one with insert_image_asset (no manual "insert" control here,
+  // consistent with how text overlays already work — chat is the only editor).
+  const available = (uploaded_files || []).filter(f => !f.placed);
+  if (available.length) {
+    const body = `<div class="space-y-1.5">
+      ${available.map(f => `
+        <div class="flex items-center justify-between bg-[#121212] border border-[#2a2a2a] rounded-lg px-3 py-2">
+          <span class="text-xs text-gray-300 font-mono truncate flex-1 mr-2">🖼 ${escapeHtml(f.name)}</span>
+          <span class="text-[10px] text-gray-600 font-mono flex-shrink-0">not placed</span>
+        </div>`).join('')}
+    </div>`;
+    html += renderAssetSection('uploaded', 'Uploaded Files', available.length, body);
+  }
+
+  // Group timeline assets by their `type` field — one collapsible section per
+  // distinct type, so new asset kinds (e.g. image, once placed) automatically
+  // get their own section with no template changes.
+  const items = assets || [];
+  const byType = {};
+  for (const a of items) {
+    const t = a.type || 'other';
+    (byType[t] = byType[t] || []).push(a);
+  }
+
+  const types = Object.keys(byType).sort();
+  if (!types.length) {
+    html += renderAssetSection('assets-empty', 'Assets', 0, `<p class="text-xs text-gray-600 font-mono">No assets yet — build captions on the Pipeline tab.</p>`);
+  } else {
+    for (const t of types) {
+      const group = byType[t];
+      const body = `<div class="space-y-1.5">${group.map(_assetRowHtml).join('')}</div>`;
+      html += renderAssetSection(t, ASSET_TYPE_LABEL[t] || capitalize(t), group.length, body);
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+async function uploadAssetFile(file) {
+  if (!file) return;
+  const status = document.getElementById('asset-upload-status');
+  const input = document.getElementById('asset-upload-input');
+  status.textContent = `Uploading ${file.name}…`;
+  status.className = 'text-xs text-gray-500 font-mono mb-2';
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`/job/${JOB_PK}/assets/upload/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed.');
+    status.textContent = `Uploaded ${data.created.length} file${data.created.length === 1 ? '' : 's'}.`;
+    status.className = 'text-xs text-green-400 font-mono mb-2';
+    await refreshJobState();
+  } catch (e) {
+    status.textContent = e.message || 'Upload failed.';
+    status.className = 'text-xs text-red-400 font-mono mb-2';
+  } finally {
+    input.value = '';
+  }
+}
+
+// ── Welcome tips ──────────────────────────────────────────────────────────────
+
+let tipsList = null;  // cached after the first dynamic import so re-opening the tab is instant
+let tipIndex = 0;
+let tipTimer = null;
+
+async function startTipCarousel() {
+  const el = document.getElementById('welcome-tip');
+  if (!el) return;
+
+  // Dynamic import: tips live in their own module rather than inline here, and
+  // only get fetched the first time a user actually opens the Welcome tab.
+  if (!tipsList) {
+    const mod = await import("{% static 'js/tips.js' %}");
+    tipsList = mod.TIPS;
+  }
+
+  showTip(el, tipIndex);
+  stopTipCarousel(); // clear any leftover interval before starting a fresh one
+  tipTimer = setInterval(() => {
+    tipIndex = (tipIndex + 1) % tipsList.length;
+    showTip(el, tipIndex);
+  }, 4500);
+}
+
+function showTip(el, i) {
+  // Cross-fade: fade out, swap the text once invisible, then fade back in.
+  el.classList.add('opacity-0');
+  setTimeout(() => {
+    el.textContent = tipsList[i];
+    el.classList.remove('opacity-0');
+  }, 500);
+}
+
+function stopTipCarousel() {
+  // Stop rotating once the tab isn't visible so it doesn't keep firing in the background.
+  if (tipTimer) {
+    clearInterval(tipTimer);
+    tipTimer = null;
+  }
+}
+
+// ── Pipeline AJAX ─────────────────────────────────────────────────────────────
+
+async function runPipeline(step) {
+  const urlMap = { transcribe: CSRF_URL_TRANSCRIBE, captions: CSRF_URL_CAPTIONS, render: CSRF_URL_RENDER };
+  const url = urlMap[step];
+  if (!url) return;
+
+  // Optimistically show spinner
+  updatePipelinePanel({ status: 'processing', stage: step === 'transcribe' ? '' : step === 'captions' ? 'transcribed' : 'captioned', assets: [] });
+
+  // For the render step, include the resolution selection from the dropdown.
+  // Other steps have no extra parameters so body stays empty.
+  let fetchBody;
+  if (step === 'render') {
+    const sel = document.getElementById('export-resolution');
+    fetchBody = new FormData();
+    fetchBody.append('resolution', sel ? sel.value : 'original');
+  }
+
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrf() },
+    body: fetchBody,
+    redirect: 'manual',
+  });
+
+  // Poll until status leaves 'processing'
+  let attempts = 0;
+  while (attempts < 120) {
+    await new Promise(r => setTimeout(r, 2000));
+    const state = await fetch(`/job/${JOB_PK}/state/`).then(r => r.json());
+    updateBadges(state);
+    updatePipelinePanel(state);
+    updateAssetsTab(state);
+    updateExportArea(state);
+    if (state.status !== 'processing') {
+      updateTimeline(state.assets);
+      currentAssets = state.assets || [];
+      drawFrame();
+      // If this was a render step and it succeeded, auto-trigger the file download.
+      // fetch() can't trigger downloads directly; a programmatic <a download> click is
+      // the only reliable cross-browser way to do it from JS.
+      if (step === 'render' && state.stage === 'rendered' && state.output_url) {
+        const a = document.createElement('a');
+        a.href = state.output_url;
+        a.download = 'video.mp4';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      break;
+    }
+    attempts++;
+  }
+}
+
+// ── Canvas preview ────────────────────────────────────────────────────────────
+
+function resizeCanvas() {
+  const video = document.getElementById('preview-video');
+  const canvas = document.getElementById('preview-canvas');
+  if (!video || !canvas) return;
+
+  const elW = video.clientWidth;
+  const elH = video.clientHeight;
+  const vW = video.videoWidth;
+  const vH = video.videoHeight;
+
+  // Compute actual frame rect within the element (object-fit: contain)
+  let fw = elW, fh = elH, fx = 0, fy = 0;
+  if (vW && vH) {
+    if (vW / vH > elW / elH) {
+      fh = Math.round(elW * vH / vW);
+      fy = Math.round((elH - fh) / 2);
+    } else {
+      fw = Math.round(elH * vW / vH);
+      fx = Math.round((elW - fw) / 2);
+    }
+  }
+
+  // Match drawing buffer to display size — no CSS/attribute mismatch
+  canvas.width = fw;
+  canvas.height = fh;
+  canvas.style.width = fw + 'px';
+  canvas.style.height = fh + 'px';
+  canvas.style.left = fx + 'px';
+  canvas.style.top = fy + 'px';
+
+  drawFrame();
+}
+
+function _bgColor(bg) {
+  if (!bg || bg === 'none') return null;
+  if (bg === 'dark') return 'rgba(0,0,0,0.6)';
+  if (bg === 'light') return 'rgba(255,255,255,0.6)';
+  return bg;
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(test).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// Rounded-rect path helper — mirrors the ctx.roundRect fallback used for the
+// caption background box, needed here for image corner clipping/border too.
+function _roundRectPath(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  r = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawFrame() {
+  const video = document.getElementById('preview-video');
+  const canvas = document.getElementById('preview-canvas');
+  if (!video || !canvas || !canvas.width || !canvas.height) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const t = video.currentTime;
+  const active = currentAssets.filter(a => a.start <= t && a.end > t);
+  if (!active.length) return;
+
+  active.forEach(asset => {
+    const style = asset.style || {};
+    const pos = asset.position || { x: 0.5, y: 0.85 };
+
+    if (asset.type === 'image') {
+      const url = asset.content.url;
+      let img = imageAssetCache[url];
+      if (!img) {
+        // Not loaded yet — kick off the load and skip drawing this frame;
+        // the browser's own onload triggers a redraw once it's ready.
+        img = new Image();
+        img.onload = drawFrame;
+        img.src = url;
+        imageAssetCache[url] = img;
+      }
+      if (!img.complete || !img.naturalWidth) return;
+      const widthPx = (style.width_pct || 0.3) * canvas.width;
+      const heightPx = widthPx * (img.naturalHeight / img.naturalWidth);
+      const x = pos.x * canvas.width - widthPx / 2;
+      const y = pos.y * canvas.height - heightPx / 2;
+
+      // corner_radius_pct/border_width_pct are stored as a fraction of the image's
+      // shorter side (matches how the render pipeline scales them in pipeline/overlay.py).
+      const radiusPx = (style.corner_radius_pct || 0) * Math.min(widthPx, heightPx);
+      const opacity = style.opacity != null ? style.opacity : 1;
+
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      if (radiusPx > 0) {
+        ctx.beginPath();
+        _roundRectPath(ctx, x, y, widthPx, heightPx, radiusPx);
+        ctx.clip();
+      }
+      ctx.drawImage(img, x, y, widthPx, heightPx);
+      ctx.restore();
+
+      if (style.border_color && style.border_width_pct) {
+        const borderPx = style.border_width_pct * Math.min(widthPx, heightPx);
+        const inset = borderPx / 2;
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = style.border_color;
+        ctx.lineWidth = borderPx;
+        ctx.beginPath();
+        _roundRectPath(ctx, x + inset, y + inset, widthPx - borderPx, heightPx - borderPx, Math.max(0, radiusPx - inset));
+        ctx.stroke();
+        ctx.restore();
+      }
+      return;
+    }
+
+    const text = asset.content.text;
+    const color = style.color || '#FFFFFF';
+    const bg = _bgColor(style.background);
+
+    // font_size calibrated to 1080p render height
+    const scaled = Math.round((style.font_size || 72) * canvas.height / 1080);
+    const weight = (style.font_weight || 'Regular').toLowerCase();
+    const isBold = ['semibold', 'bold', 'extrabold', 'black'].includes(weight);
+    const isItalic = style.font_italic;
+    const family = style.font || 'Roboto';
+    ctx.font = `${isItalic ? 'italic ' : ''}${isBold ? 'bold ' : ''}${scaled}px "${family}", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const x = pos.x * canvas.width;
+    const y = pos.y * canvas.height;
+    const maxW = canvas.width * 0.9;
+    const lines = wrapText(ctx, text, maxW);
+    const lineH = scaled * 1.3;
+    const totalH = lines.length * lineH;
+    const blockW = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const pad = scaled * 0.25;
+
+    if (bg) {
+      ctx.fillStyle = bg;
+      const rx = x - blockW / 2 - pad;
+      const ry = y - totalH / 2 - pad * 0.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(rx, ry, blockW + pad * 2, totalH + pad, 6);
+      else ctx.rect(rx, ry, blockW + pad * 2, totalH + pad);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = color;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, x, y - totalH / 2 + lineH * i + lineH / 2);
+    });
+  });
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+
+function updateTimeline(assets) {
+  if (!assets || assets.length === 0) {
+    document.getElementById('timeline-section').classList.add('hidden');
+    return;
+  }
+
+  const video = document.getElementById('preview-video');
+
+  function draw(duration) {
+    const section = document.getElementById('timeline-section');
+    const container = document.getElementById('timeline-tracks');
+    section.classList.remove('hidden');
+    container.innerHTML = '';
+
+    const TYPE_LABEL = { caption: 'Captions', text: 'Text Overlays', image: 'Images' };
+    const TYPE_ORDER = { caption: 0, text: 1, image: 2 };
+    const layers = {};
+    assets.forEach(a => {
+      const t = a.type || 'unknown';
+      if (!layers[t]) layers[t] = { label: TYPE_LABEL[t] || t, assets: [] };
+      layers[t].assets.push(a);
+    });
+    const sortedTypes = Object.keys(layers).sort((a, b) => (TYPE_ORDER[a] ?? 99) - (TYPE_ORDER[b] ?? 99));
+
+    // Two-column layout: fixed label column | track column.
+    // The playhead lives in trackCol (no overflow:hidden) so it's one continuous
+    // line spanning all tracks and the gaps between them.
+    const grid = document.createElement('div');
+    grid.className = 'flex gap-3';
+
+    const labelCol = document.createElement('div');
+    labelCol.className = 'w-20 flex-shrink-0 flex flex-col gap-2';
+
+    const trackCol = document.createElement('div');
+    trackCol.className = 'relative flex-1 flex flex-col gap-2';
+
+    sortedTypes.forEach(l => {
+      const { label, assets: layerAssets } = layers[l];
+
+      const lbl = document.createElement('div');
+      lbl.className = 'h-7 flex flex-col items-end justify-center text-xs text-gray-600 font-mono leading-tight';
+      lbl.innerHTML = `<span>${label}</span><span class="text-amber-500/70 text-[10px]">${layerAssets.length}</span>`;
+      labelCol.appendChild(lbl);
+
+      const track = document.createElement('div');
+      track.className = 'h-7 bg-[#121212] rounded-md overflow-hidden relative';
+      layerAssets.forEach(asset => {
+        const left = (asset.start / duration) * 100;
+        const width = Math.max((asset.end - asset.start) / duration * 100, 0.3);
+        const bar = document.createElement('div');
+        bar.style.cssText = `position:absolute;top:3px;bottom:3px;left:${left}%;width:${width}%`;
+        bar.className = 'rounded cursor-pointer hover:opacity-70 transition-opacity ' +
+          (asset.type === 'caption' ? 'bg-blue-500/60' : asset.type === 'image' ? 'bg-emerald-500/60' : 'bg-purple-500/60');
+        bar.title = `${asset.type === 'image' ? asset.content.name : asset.content.text}\n${asset.start.toFixed(1)}s → ${asset.end.toFixed(1)}s`;
+        bar.addEventListener('click', () => {
+          if (!video) return;
+          video.currentTime = asset.start;
+          video.play().catch(() => {});
+        });
+        track.appendChild(bar);
+      });
+      trackCol.appendChild(track);
+    });
+
+    // Single playhead in trackCol — spans all tracks and inter-track gaps as one line
+    const playhead = document.createElement('div');
+    playhead.className = 'timeline-playhead';
+    playhead.style.cssText = 'position:absolute;top:0;bottom:0;width:1.5px;background:#f59e0b;z-index:10;pointer-events:none';
+    trackCol.appendChild(playhead);
+
+    grid.appendChild(labelCol);
+    grid.appendChild(trackCol);
+    container.appendChild(grid);
+
+    // Ruler
+    const rulerRow = document.createElement('div');
+    rulerRow.className = 'flex gap-3 mt-1';
+    const rulerSpacer = document.createElement('span');
+    rulerSpacer.className = 'w-20 flex-shrink-0';
+    rulerRow.appendChild(rulerSpacer);
+    const rulerArea = document.createElement('div');
+    rulerArea.className = 'relative flex-1';
+    const rulerTick = document.createElement('div');
+    rulerTick.className = 'timeline-playhead';
+    rulerTick.style.cssText = 'position:absolute;top:0;width:1.5px;height:5px;background:#f59e0b;pointer-events:none';
+    rulerArea.appendChild(rulerTick);
+    const rulerLabels = document.createElement('div');
+    rulerLabels.className = 'flex justify-between text-xs text-gray-700 font-mono pt-1.5';
+    rulerLabels.innerHTML = [0, 0.25, 0.5, 0.75, 1].map(p => `<span>${(p * duration).toFixed(0)}s</span>`).join('');
+    rulerArea.appendChild(rulerLabels);
+    rulerRow.appendChild(rulerArea);
+    container.appendChild(rulerRow);
+
+    updatePlayhead();
+  }
+
+  if (video && !isNaN(video.duration) && video.duration > 0) {
+    draw(video.duration);
+  } else if (video) {
+    video.addEventListener('loadedmetadata', () => draw(video.duration), { once: true });
+  }
+}
+
+// ── Playhead ──────────────────────────────────────────────────────────────────
+
+function updatePlayhead() {
+  const video = document.getElementById('preview-video');
+  if (!video || isNaN(video.duration) || video.duration <= 0) return;
+  const pct = (video.currentTime / video.duration) * 100;
+  document.querySelectorAll('.timeline-playhead').forEach(el => {
+    el.style.left = pct + '%';
+  });
+}
+
+// ── Pipeline toggle ───────────────────────────────────────────────────────────
+
+function togglePipeline() {
+  const panel = document.getElementById('pipeline-panel');
+  const body = document.getElementById('pipeline-body');
+  const btn = document.getElementById('pipeline-toggle');
+  const collapsed = body.classList.toggle('hidden');
+  panel.classList.toggle('min-h-[240px]', !collapsed);
+  panel.classList.toggle('min-h-0', collapsed);
+  btn.innerHTML = collapsed ? '&#x25BE; Show' : '&#x25B4; Hide';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+const _previewVideo = document.getElementById('preview-video');
+if (_previewVideo) {
+  _previewVideo.addEventListener('timeupdate', drawFrame);
+  _previewVideo.addEventListener('timeupdate', updatePlayhead);
+  _previewVideo.addEventListener('loadedmetadata', resizeCanvas);
+  new ResizeObserver(resizeCanvas).observe(_previewVideo);
+}
+
+// Canvas text only picks up an @font-face once the browser has actually
+// fetched it — and nothing triggers that fetch on its own, since no visible
+// DOM text uses these families. document.fonts.load() forces the fetch for
+// every weight/style combo declared above; redraw once they land so an
+// overlay isn't stuck showing the fallback font from before they loaded.
+const _FONT_FAMILIES = [
+  'Roboto', 'Montserrat', 'Oswald', 'Gelasio', 'Anton',
+  'Bebas Neue', 'Archivo Black', 'Bangers', 'Alfa Slab One', 'Luckiest Guy',
+  'Caveat', 'Pacifico', 'Dancing Script', 'Permanent Marker', 'Kalam',
+  'Playfair Display', 'Merriweather', 'Lora', 'Libre Baskerville',
+  'JetBrains Mono', 'Space Mono', 'IBM Plex Mono', 'Roboto Mono',
+  'Inter', 'Poppins',
+];
+const _FONT_VARIANTS = ['400', '700', 'italic 400', 'italic 700'];
+Promise.all(
+  _FONT_FAMILIES.flatMap(fam => _FONT_VARIANTS.map(v =>
+    document.fonts.load(`${v} 16px "${fam}"`).catch(() => [])
+  ))
+).then(drawFrame);
+
+// Fonts tab: one card per family, rendered in its own @font-face so the user can
+// browse before naming a font in chat. Built from the same _FONT_FAMILIES list
+// that drives preloading above, so the two never drift apart.
+function buildFontLibrary() {
+  const grid = document.getElementById('font-library');
+  grid.innerHTML = _FONT_FAMILIES.map(fam => `
+    <button onclick="insertFontName('${fam}')"
+            class="text-left bg-[#2a2a2a] hover:bg-[#333] rounded-lg px-3 py-2 transition-colors overflow-hidden">
+      <p class="text-[10px] text-gray-500 font-mono mb-0.5">${fam}</p>
+      <p class="text-lg text-gray-100 truncate" style="font-family: '${fam}'">${fam}</p>
+    </button>
+  `).join('');
+}
+buildFontLibrary();
+
+// Inserts a clicked font name at the current cursor position in the chat input
+// (rather than always appending) so it slots naturally into a half-typed message.
+function insertFontName(name) {
+  const input = document.getElementById('chat-input');
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + name + input.value.slice(end);
+  const cursor = start + name.length;
+  input.focus();
+  input.setSelectionRange(cursor, cursor);
+}
+
+refreshJobState();
+</script>
+{% endblock %}

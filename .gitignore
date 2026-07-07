@@ -6,3 +6,7 @@ db.sqlite3
 *.log
 media/
 staticfiles/
+docs/
+CLAUDE.md
+report.md
+whisper_ai_test/
