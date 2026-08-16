@@ -13,21 +13,22 @@ An agent with video editing tools can cause three problems
 
 ## Architecture
 
-![Architecture](docs\design\video_process.drawio.png)
+![Architecture](production_docs\preview\video_process.drawio.png)
 
 ## Agent 
 
 the agent itself is a Langgraph ReAct loop over an open ai compatible chat model, the pipeline for edting consists of tools rather then any sequence which the agent can use as needed, no hardcoded flow
 
-![Agent Loop](docs\design\AI_request_flow.drawio.png)
+![Agent Loop](production_docs\preview\AI_request_flow.drawio.png)
 
 ## Key decisions
 #### Tools are classfied by write semantics
 
-Class | why  
-Pure read, no write | these are safe to retry and sage to call, no guard required
-Straight write, no look up | create a new asset, no history present
-Look up required, write also | Resolve the target against the existing db
+| Class | Why |
+|---|---|
+| Pure read, no write | These are safe to retry and safe to call, no guard required |
+| Straight write, no look up | Create a new asset, no history present |
+| Look up required, write also | Resolve the target against the existing db |
 
 Here the third row is the most important, as i did remove an asset from the video but as the agent had context of the old asset it tried to manipulate that and kept giving errors. But with lookup required the agent reliably finishes its task and can see the changes aswell.
 
