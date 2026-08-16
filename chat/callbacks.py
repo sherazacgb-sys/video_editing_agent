@@ -36,6 +36,7 @@ class LLMCallbackHandler(BaseCallbackHandler):
         self._pending[str(run_id)] = [_serialize_message(m) for m in messages[0]]
 
     def on_llm_end(self, response, *, run_id, **kwargs):
+        from django.db.models import F
         from chat.models import LLMCall, ChatSession
 
         input_msgs = self._pending.pop(str(run_id), [])
@@ -44,11 +45,30 @@ class LLMCallbackHandler(BaseCallbackHandler):
         output_content = gen[0].text if gen else ""
 
         usage = (response.llm_output or {}).get("token_usage", {})
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
 
+        session = ChatSession.objects.get(pk=self.session_pk)
         LLMCall.objects.create(
-            session=ChatSession.objects.get(pk=self.session_pk),
+            session=session,
             input_messages=input_msgs,
             output_content=output_content,
-            prompt_tokens=usage.get("prompt_tokens"),
-            completion_tokens=usage.get("completion_tokens"),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+
+        # Mirror this call's usage onto the session's running totals via F() so
+        # concurrent callbacks (tool-calling turns fire several LLM round-trips)
+        # increment atomically instead of racing on a read-modify-write in Python.
+        ChatSession.objects.filter(pk=self.session_pk).update(
+            total_prompt_tokens=F('total_prompt_tokens') + (prompt_tokens or 0),
+            total_completion_tokens=F('total_completion_tokens') + (completion_tokens or 0),
+        )
+
+        # Same running-total mirror one level up onto the owning job, so a job's
+        # all-time LLM cost is readable without summing across its chat_sessions.
+        from videos.models import VideoJob
+        VideoJob.objects.filter(pk=session.job_id).update(
+            total_prompt_tokens=F('total_prompt_tokens') + (prompt_tokens or 0),
+            total_completion_tokens=F('total_completion_tokens') + (completion_tokens or 0),
         )

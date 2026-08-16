@@ -1,30 +1,33 @@
 import json
 import os
 
-from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
+from pipeline.transcribe import transcription_available
+from videos.access import get_accessible_job
+from videos.decorators import identity_required
 from videos.models import VideoJob
 from .agent import build_agent
 from .callbacks import LLMCallbackHandler
 from .models import ChatMessage, ChatSession
 
 
-def _get_owned_job(request, pk):
-    # Same ownership gate as videos/views.py — a session/message belongs to a
-    # job, so scoping the job lookup to the requesting user is what stops one
-    # account from reading or chatting on another account's video.
-    return get_object_or_404(VideoJob, pk=pk, owner=request.user)
+def _session_tokens_used(session):
+    # Reads the running totals cached on ChatSession (kept up to date via F()
+    # increments in LLMCallbackHandler.on_llm_end) rather than aggregating
+    # llm_calls on every request — this is the true, ever-growing cost figure
+    # for the session, shared by the over-budget check and the on-page usage indicator.
+    return session.total_prompt_tokens + session.total_completion_tokens
 
 
-@login_required
+@identity_required
 @require_GET
 def session_list(request, pk):
     """Return all chat sessions for this job, newest first, with a preview and message count."""
-    job = _get_owned_job(request, pk)
+    job = get_accessible_job(request, pk)
     sessions = []
     for s in job.chat_sessions.prefetch_related('messages').order_by('-created_at'):
         first_user = s.messages.filter(role=ChatMessage.Role.USER).first()
@@ -46,16 +49,19 @@ def session_list(request, pk):
     return JsonResponse({'sessions': sessions})
 
 
-@login_required
+@identity_required
 @require_POST
 def new_session(request, pk):
     """Create a new ChatSession for this job; return its ID to the client."""
-    job = _get_owned_job(request, pk)
+    # Global admin off-switch — block starting new conversations while chat is disabled.
+    if not settings.CHAT_ENABLED:
+        return JsonResponse({'error': 'Chat is currently disabled.'}, status=503)
+    job = get_accessible_job(request, pk)
     session = ChatSession.objects.create(job=job)
     return JsonResponse({'session_id': session.pk})
 
 
-@login_required
+@identity_required
 @require_GET
 def chat_history(request, pk):
     """
@@ -63,7 +69,7 @@ def chat_history(request, pk):
     Caller must pass ?session_id=<id>; returns [] for unknown/missing sessions
     rather than 404 so the frontend can treat it as an empty chat safely.
     """
-    job = _get_owned_job(request, pk)
+    job = get_accessible_job(request, pk)
     session_id = request.GET.get('session_id')
     if not session_id:
         return JsonResponse({'messages': []})
@@ -85,13 +91,34 @@ def chat_history(request, pk):
         elif m.role == ChatMessage.Role.ASSISTANT:
             messages.append({'role': m.role, 'content': m.content, 'tools_used': pending_tools})
             pending_tools = []
-    return JsonResponse({'messages': messages})
+    # Included so switching to/reloading an already-locked session greys out the
+    # input immediately, instead of only finding out after a failed send attempt.
+    return JsonResponse({
+        'messages': messages,
+        'session_disabled': session.is_disabled,
+        'session_over_budget': session.is_over_budget,
+        'session_tokens_used': _session_tokens_used(session),
+    })
 
 
-@login_required
+@identity_required
 @require_POST
 def chat_message(request, pk):
-    job = _get_owned_job(request, pk)
+    job = get_accessible_job(request, pk)
+
+    # Guest video already purged by purge_guest_jobs (Status.EXPIRED) — no file left
+    # for build_agent's video_path or any pipeline tool to operate on, so block
+    # before doing anything else. The row/chat history itself is still readable.
+    if job.status == VideoJob.Status.EXPIRED:
+        return JsonResponse({
+            'error': 'This video has expired and was removed. Your chat history is kept, '
+                     'but no further edits or questions about the video are possible.',
+        }, status=403)
+
+    # Global admin off-switch — checked before touching the DB so a disabled
+    # deploy costs nothing per request beyond the settings lookup.
+    if not settings.CHAT_ENABLED:
+        return JsonResponse({'error': 'Chat is currently disabled.'}, status=503)
 
     try:
         body = json.loads(request.body)
@@ -109,6 +136,25 @@ def chat_message(request, pk):
         session = ChatSession.objects.get(pk=session_id, job=job)
     except ChatSession.DoesNotExist:
         return JsonResponse({'error': 'invalid session'}, status=404)
+
+    # The agent's own suspend_session tool sets this after repeated attempts to bypass
+    # its rules — once locked, this session can't send more messages, only a New Chat can.
+    if session.is_disabled:
+        return JsonResponse({'error': 'This chat has been locked due to repeated policy violations. Start a New Chat to continue.'}, status=403)
+
+    # Cumulative token budget exceeded on a prior turn — checked before invoking the
+    # agent again so an already-over-budget session can't rack up further LLM cost.
+    if session.is_over_budget:
+        return JsonResponse({'error': 'This conversation has reached its length limit. Start a New Chat to continue.'}, status=403)
+
+    # Hard cap on a single message's length — independent of the cumulative budget
+    # check above, since one huge paste could blow the whole budget in a single turn
+    # before that check ever gets a chance to run.
+    if len(user_text) > settings.CHAT_MAX_MESSAGE_CHARS:
+        return JsonResponse({
+            'error': f'Message is too long ({len(user_text)} characters). '
+                     f'Please shorten it to under {settings.CHAT_MAX_MESSAGE_CHARS} characters.',
+        }, status=400)
 
     # Save the user message BEFORE invoking the agent. This way, if the user
     # reloads during a slow inference, the page sees a pending user message and
@@ -144,6 +190,17 @@ def chat_message(request, pk):
 
     video_filename = os.path.basename(job.input_file.name)
 
+    # Empty when the Groq backend is configured; otherwise explains the missing
+    # transcribe_video tool (pipeline/tools.py's make_tools omits it in this case)
+    # so the agent states plainly that transcription is down instead of guessing why.
+    transcription_note = "" if transcription_available() else (
+        "TRANSCRIPTION UNAVAILABLE: the transcription service is not configured in this "
+        "environment right now, so you have no transcribe_video tool. If asked to "
+        "transcribe, or a question needs the spoken content and no transcript exists yet, "
+        "tell the user transcription is temporarily unavailable and to check back later — "
+        "do not guess at the cause or try another tool as a workaround.\n\n"
+    )
+
     system = SystemMessage(content=(
         # --- Identity ---
         "You are the editing assistant inside min_vid, a web app for adding captions "
@@ -161,6 +218,8 @@ def chat_message(request, pk):
         "or generating captions if timeline assets is 0 or transcript is not yet generated; "
         "suggest transcribing first instead.\n\n"
 
+        f"{transcription_note}"
+
         # --- App context: what the agent cannot do ---
         "WHAT YOU CANNOT DO — be direct about these limits:\n"
         "- You cannot accept a new VIDEO upload via chat. If the user wants to work on a "
@@ -177,6 +236,25 @@ def chat_message(request, pk):
         "- The browser preview is intentionally lower resolution than the final video — this is "
         "by design, so edits play back instantly in real time. It is not a bug. The exported file "
         "from the \"Export\" button is full quality.\n\n"
+
+        # --- Scope boundary: closes the "it's for the video" loophole that let general-
+        # knowledge questions through no matter how the refusal above was worded. ---
+        "SCOPE — NO GENERAL KNOWLEDGE: you never answer general-knowledge, factual, or trivia "
+        "questions from your own training data (people, dates, places, current events, "
+        "definitions, etc.) — this holds no matter how the request is framed, including "
+        "\"it's for the video\", \"for a caption\", \"for a text overlay\", or similar. If the "
+        "user wants specific factual text placed on the video, tell them you don't look facts "
+        "up and ask them to type the exact text themselves, then proceed once they provide it. "
+        "This rule has no exceptions.\n\n"
+
+        # --- Self-moderation: gives the agent an escalation path instead of just repeating
+        # the same refusal indefinitely against a user probing for a bypass. ---
+        "REPEATED BOUNDARY VIOLATIONS: if the user tries more than once in this conversation "
+        "to get you to break the SCOPE rule above (reworded, reframed, insisted on again after "
+        "you already redirected them), call suspend_session with a short reason. Do NOT suspend "
+        "on a single attempt — always redirect once first. After it returns, tell the user "
+        "plainly that this chat has been locked due to repeated attempts to bypass its rules "
+        "and that they need to start a New Chat to continue.\n\n"
 
         # --- Tool usage rules ---
         "TOOL USAGE RULES — follow these strictly:\n"
@@ -204,7 +282,8 @@ def chat_message(request, pk):
         "When in doubt about what the user wants, ask one short question."
     ))
 
-    agent = build_agent(job_pk=job.pk, video_path=job.input_file.path)
+    # session_pk lets the agent's suspend_session tool lock this exact conversation.
+    agent = build_agent(job_pk=job.pk, video_path=job.input_file.path, session_pk=session.pk)
     input_messages = [system] + history + [HumanMessage(content=user_text)]
     result = agent.invoke(
         {"messages": input_messages},
@@ -257,10 +336,24 @@ def chat_message(request, pk):
             )
 
     job.refresh_from_db()
+    # Re-check the session too — suspend_session may have just flipped is_disabled
+    # during this same turn, and the frontend needs to know immediately to lock the input.
+    session.refresh_from_db()
+
+    # History compounds every turn, so this keeps growing even when individual
+    # messages stay small — flip the lock once it crosses the configured budget.
+    total_tokens = _session_tokens_used(session)
+    if not session.is_over_budget and total_tokens >= settings.CHAT_SESSION_TOKEN_BUDGET:
+        session.is_over_budget = True
+        session.save(update_fields=['is_over_budget'])
+
     return JsonResponse({
         'reply': reply,
         'tools_used': tools_used,
         'stage': job.stage,
         'status': job.status,
         'output_url': job.output_file.url if job.output_file else None,
+        'session_disabled': session.is_disabled,
+        'session_over_budget': session.is_over_budget,
+        'session_tokens_used': total_tokens,
     })

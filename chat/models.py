@@ -22,6 +22,19 @@ class ChatSession(models.Model):
     # "New Chat" creates a fresh one while leaving older ones intact in the DB.
     job = models.ForeignKey(VideoJob, on_delete=models.CASCADE, related_name='chat_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
+    # Locked by the agent's own suspend_session tool after repeated attempts to bypass
+    # its scope rules (see chat/agent.py) — once true, chat_message rejects further
+    # messages in this session and the user must start a New Chat to keep going.
+    is_disabled = models.BooleanField(default=False)
+    # Locked by chat_message once this session's cumulative LLMCall token usage
+    # crosses settings.CHAT_SESSION_TOKEN_BUDGET. Kept separate from is_disabled
+    # (policy violation) so the two lock reasons stay distinguishable.
+    is_over_budget = models.BooleanField(default=False)
+    # Running totals mirrored from LLMCall rows via F()-expression increments in
+    # LLMCallbackHandler.on_llm_end (chat/callbacks.py) — cached here so the budget
+    # check and usage indicator don't need an aggregate() over llm_calls on every request.
+    total_prompt_tokens = models.PositiveIntegerField(default=0)
+    total_completion_tokens = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['created_at']

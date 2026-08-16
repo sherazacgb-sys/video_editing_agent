@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 import subprocess
 import tempfile
 
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 
 def _has_audio_stream(video_path: str) -> bool:
@@ -21,6 +24,33 @@ def _has_audio_stream(video_path: str) -> bool:
     )
     data = json.loads(result.stdout)
     return bool(data.get('streams'))  # empty list → no audio
+
+
+def get_duration_seconds(video_path: str) -> float:
+    """Read the container duration via ffprobe -show_format. Used at upload time to
+    reject videos over the max length before we ever transcribe/caption them — a long
+    video means a huge caption count, which can blow up the LLM's context in a single
+    read_assets call (see pipeline/tools.py's _MAX_ASSETS_UNFILTERED)."""
+    result = subprocess.run(
+        [
+            'ffprobe', '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            video_path,
+        ],
+        capture_output=True,
+        check=True,
+    )
+    data = json.loads(result.stdout)
+    return float(data['format']['duration'])
+
+
+def transcription_available() -> bool:
+    """Whether the Groq transcription backend is configured in this environment.
+    Checked before registering transcribe_video as an agent tool and before adding
+    its system-prompt guidance, so a missing/expired key fails fast (no LLM round-trip,
+    no wasted ffmpeg extraction) instead of surfacing only after a failed API call."""
+    return bool(os.environ.get("GROQ_API_KEY"))
 
 
 def transcribe(video_path: str) -> dict:
@@ -45,22 +75,36 @@ def transcribe(video_path: str) -> dict:
     tmp_fd, audio_path = tempfile.mkstemp(suffix='.mp3')
     os.close(tmp_fd)
 
-    try:
-        subprocess.run(
-            ['ffmpeg', '-y', '-i', video_path, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', audio_path],
-            check=True,
-            capture_output=True,
-        )
+    # Generic, non-revealing message for anything below — the real exception (auth
+    # failure, rate limit, ffmpeg stderr, network error) is logged server-side only.
+    # Surfacing raw exception text to the chat agent would leak backend config details
+    # (e.g. "invalid API key") straight into a user-facing reply.
+    unavailable_msg = "Transcription is temporarily unavailable. Please try again later."
 
-        with open(audio_path, 'rb') as f:
-            result = client.audio.transcriptions.create(
-                file=f,
-                model='whisper-large-v3-turbo',
-                response_format='verbose_json',
-                timestamp_granularities=['word', 'segment'],
-                language='en',
-                temperature=0.0,
+    try:
+        try:
+            subprocess.run(
+                ['ffmpeg', '-y', '-i', video_path, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', audio_path],
+                check=True,
+                capture_output=True,
             )
+        except subprocess.CalledProcessError:
+            logger.exception("ffmpeg audio extraction failed for %s", video_path)
+            raise RuntimeError(unavailable_msg)
+
+        try:
+            with open(audio_path, 'rb') as f:
+                result = client.audio.transcriptions.create(
+                    file=f,
+                    model='whisper-large-v3-turbo',
+                    response_format='verbose_json',
+                    timestamp_granularities=['word', 'segment'],
+                    language='en',
+                    temperature=0.0,
+                )
+        except Exception:
+            logger.exception("Groq transcription request failed")
+            raise RuntimeError(unavailable_msg)
 
         return result.model_dump()
     finally:

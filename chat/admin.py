@@ -24,8 +24,13 @@ class LLMCallInline(admin.StackedInline):
 
 @admin.register(ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'job', 'created_at')
-    readonly_fields = ('created_at',)
+    # is_disabled/is_over_budget shown here (read-only) so you can see at a glance which
+    # sessions got locked and why — set by suspend_session / the token-budget check in
+    # chat_message respectively, not edited by hand. total_*_tokens are likewise
+    # read-only — maintained by LLMCallbackHandler.on_llm_end, not edited by hand.
+    list_display = ('id', 'job', 'is_disabled', 'is_over_budget', 'total_prompt_tokens', 'total_completion_tokens', 'created_at')
+    list_filter = ('is_disabled', 'is_over_budget')
+    readonly_fields = ('created_at', 'total_prompt_tokens', 'total_completion_tokens')
     # Both messages and raw LLM calls are visible inside a session.
     inlines = [ChatMessageInline, LLMCallInline]
 

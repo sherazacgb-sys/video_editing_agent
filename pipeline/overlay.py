@@ -2,14 +2,15 @@ import subprocess
 import os
 import tempfile
 
-# libass scans fontsdir non-recursively, so every bundled family's .ttf files
-# are flattened into this one directory rather than living under per-family
-# subfolders (those subfolders still exist under static/fonts/<Family>/ for the
-# browser's @font-face rules, which don't have that restriction).
-_FONTS_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "static", "fonts", "bundled",
-)
+# FONTS_DIR moved to layers/base.py so layer modules can resolve fonts without
+# importing this module back (overlay.py imports the layer modules — a
+# same-direction import here would be a cycle). Aliased to keep local naming.
+from pipeline.layers.base import FONTS_DIR as _FONTS_DIR
+from pipeline.layers.base import LayerContext
+# Caption layer module: renders word-highlighted captions with Pillow so the
+# highlight pill and the text are laid out by one engine (see docs/plan.md);
+# plain captions still go through the ASS path below.
+from pipeline.layers import caption as caption_layer
 
 _PLAY_RES_X = 1920
 _PLAY_RES_Y = 1080
@@ -40,6 +41,8 @@ Style: LightBG,Roboto,72,&H00000000,&H00000000,&H00FFFFFF,&H80FFFFFF,1,0,0,0,100
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
+# Weight names treated as bold when building ASS inline tags — kept in sync
+# with BOLD_WEIGHTS in layers/base.py (same set, used there for font-file picks).
 _BOLD_WEIGHTS = {"semibold", "bold", "extrabold", "black"}
 
 
@@ -54,7 +57,10 @@ def _seconds_to_ass_time(seconds: float) -> str:
 def _hex_to_ass_color(hex_color: str) -> str:
     h = hex_color.lstrip('#')
     r, g, b = h[0:2], h[2:4], h[4:6]
-    return f"\\c&H{b}{g}{r}&".upper()
+    # Only the hex digits are case-insensitive in ASS — the \c tag name itself is
+    # case-sensitive (libass silently ignores \C and falls back to the style's
+    # default color), so .upper() must not touch the leading "\\c".
+    return "\\c&H" + f"{b}{g}{r}".upper() + "&"
 
 
 def _pick_style(background: str) -> str:
@@ -89,6 +95,14 @@ def _write_ass_file(assets: list[dict]) -> str:
 
     for asset in sorted(assets, key=lambda a: a.get('layer', 1)):
         if asset.get('type') not in ('caption', 'text'):
+            continue
+        # Word-highlighted captions are rendered by the Pillow caption layer
+        # (pipeline/layers/caption.py) as timed overlay inputs instead — the old
+        # ASS vector-box approach positioned the pill with a second layout engine
+        # and drifted from the text (docs/plan.md). Skipping here (same is_dynamic
+        # check composite_overlay routes with) guarantees exactly one renderer
+        # ever draws a given caption.
+        if caption_layer.is_dynamic(asset):
             continue
 
         start = _seconds_to_ass_time(asset['start'])
@@ -169,10 +183,20 @@ def _style_image(path: str, style: dict) -> str | None:
     return out_path
 
 
-def _build_image_filter_complex(image_assets: list[dict], out_w: int, out_h: int, sub_filter: str, scale_filter: str | None) -> str:
+def _build_filter_complex(
+    image_assets: list[dict],
+    caption_overlays: list[dict],
+    out_w: int,
+    out_h: int,
+    sub_filter: str,
+    scale_filter: str | None,
+) -> str:
     # Builds a filter_complex graph: base video -> one overlay step per image
-    # (in layer order) -> subtitles burned in last, so captions/text always stay
-    # readable on top of any images.
+    # (in layer order) -> one overlay step per pre-rendered caption-layer PNG
+    # (so highlighted captions paint on top of images, like ASS captions do)
+    # -> ASS subtitles burned in last, so plain captions/text always stay
+    # readable on top of everything. Input indexing must match the -i order
+    # composite_overlay builds: video, then image files, then caption PNGs.
     parts = []
     base_label = "0:v"
     if scale_filter:
@@ -199,8 +223,65 @@ def _build_image_filter_complex(image_assets: list[dict], out_w: int, out_h: int
         parts.append(f"{current}[{scaled_label}]overlay=x='{x_expr}':y='{y_expr}':enable='{enable}'[{out_label}]")
         current = f"[{out_label}]"
 
+    for j, item in enumerate(caption_overlays):
+        # Caption-layer PNGs are already rendered at output resolution with
+        # their top-left placement precomputed (render_overlays), so no scale
+        # step and no center-shift expressions — just a timed overlay.
+        cap_input = 1 + len(image_assets) + j
+        out_label = f"cap{j}"
+        parts.append(
+            f"{current}[{cap_input}:v]overlay=x={item['x']}:y={item['y']}:enable='{item['enable']}'[{out_label}]"
+        )
+        current = f"[{out_label}]"
+
     parts.append(f"{current}{sub_filter}[outv]")
     return ";".join(parts)
+
+
+def _run_ffmpeg_with_progress(cmd, total_duration, progress_callback):
+    # Runs an ffmpeg command while streaming its encode position back through
+    # progress_callback(percent) — this is what lets the Export button show a
+    # real progress bar instead of an indeterminate spinner.
+    # -progress pipe:1 makes ffmpeg emit machine-readable key=value progress
+    # lines on stdout; -nostats silences the human-readable stderr ticker so
+    # stderr only holds real diagnostics (read back on failure below).
+    full_cmd = cmd[:1] + ["-progress", "pipe:1", "-nostats"] + cmd[1:]
+    # A zero/negative duration would divide by zero below; run without progress
+    # reporting rather than fail the whole render over a broken container header.
+    if total_duration <= 0:
+        progress_callback = None
+    # stderr goes to a temp file, not a pipe — we only read stdout during the
+    # encode, and an unread stderr PIPE could fill its OS buffer and deadlock
+    # ffmpeg on a chatty run (e.g. per-event subtitle warnings).
+    with tempfile.TemporaryFile() as err_file:
+        proc = subprocess.Popen(full_cmd, stdout=subprocess.PIPE, stderr=err_file)
+        last_pct = -1  # last percent reported, so the callback (a DB write) only fires on change
+        # The loop must always drain stdout even when nobody wants progress —
+        # an unread stdout PIPE would fill up and stall ffmpeg mid-encode.
+        for raw_line in proc.stdout:
+            if not progress_callback:
+                continue
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            # out_time_us is the encoded position in microseconds — the only
+            # progress key we need; everything else (fps, bitrate…) is ignored.
+            if not line.startswith("out_time_us="):
+                continue
+            value = line.split("=", 1)[1]
+            # ffmpeg emits "N/A" before the first frame is written — skip those.
+            if not value.lstrip("-").isdigit():
+                continue
+            # Clamp to 0–99: 100 is reserved for "actually finished" so the UI
+            # never shows a full bar while ffmpeg is still muxing/finalizing.
+            pct = max(0, min(99, int(int(value) / 1_000_000 / total_duration * 100)))
+            if pct > last_pct:
+                progress_callback(pct)
+                last_pct = pct
+        proc.wait()
+        if proc.returncode != 0:
+            # Surface ffmpeg's own diagnostics as the job error message, same
+            # contract the old subprocess.run(capture_output=True) path had.
+            err_file.seek(0)
+            raise RuntimeError(err_file.read().decode("utf-8", errors="replace"))
 
 
 def composite_overlay(
@@ -208,23 +289,51 @@ def composite_overlay(
     assets: list[dict],
     output_path: str,
     resolution: str = 'original',
+    progress_callback=None,
 ) -> str:
-    ass_path = _write_ass_file(assets)
-    styled_image_paths = []  # temp PNGs from _style_image, cleaned up in finally
+    # Real output dimensions are needed unconditionally: the caption layer
+    # renders its PNGs at output resolution, and image overlay sizes are
+    # computed against the real (even-rounded) output width.
+    from pipeline.captions import _get_aspect_ratio
+    src_w, src_h = _get_aspect_ratio(video_path)
+    height = _RESOLUTION_HEIGHTS.get(resolution)
+    if height:
+        out_h = height
+        # Same even-width rounding ffmpeg's scale=-2:H applies, computed here in
+        # Python so overlay sizes/positions use the real output width.
+        out_w = round(src_w * out_h / src_h / 2) * 2
+    else:
+        out_w, out_h = src_w, src_h
+
+    sorted_assets = sorted(assets, key=lambda a: a.get('layer', 1))
+    image_assets = [a for a in sorted_assets if a.get('type') == 'image']
+    # Dynamic caption layers: word-highlighted captions the Pillow caption layer
+    # renders (pipeline/layers/caption.py); _write_ass_file skips these via the
+    # same is_dynamic check, so each caption has exactly one renderer.
+    dynamic_captions = [a for a in sorted_assets if caption_layer.is_dynamic(a)]
+
+    ctx = LayerContext(out_w=out_w, out_h=out_h)
+    caption_overlays = []  # {'path','x','y','enable'} per pre-rendered caption state
+    temp_paths = []        # every temp file we create, cleaned up in finally
     try:
+        for asset in dynamic_captions:
+            items = caption_layer.render_overlays(asset, ctx)
+            caption_overlays += items
+            temp_paths += [item['path'] for item in items]
+
+        ass_path = _write_ass_file(assets)
+        temp_paths.append(ass_path)
+
         ass_ffmpeg = ass_path.replace("\\", "/").replace(":", "\\:")
         fonts_ffmpeg = _FONTS_DIR.replace("\\", "/").replace(":", "\\:")
 
         sub_filter = f"subtitles='{ass_ffmpeg}':fontsdir='{fonts_ffmpeg}'"
-        height = _RESOLUTION_HEIGHTS.get(resolution)
         # scale=-2:H preserves aspect ratio and ensures width is even (libx264 requirement).
         scale_filter = f"scale=-2:{height}" if height else None
 
-        image_assets = [a for a in sorted(assets, key=lambda a: a.get('layer', 1)) if a.get('type') == 'image']
-
-        if not image_assets:
-            # No images on the timeline — keep the original single -vf path
-            # (simpler command, unchanged from before image overlays existed).
+        if not image_assets and not caption_overlays:
+            # Nothing on the timeline needs extra inputs — keep the original
+            # single -vf path (simpler command, unchanged from before overlays existed).
             vf = f"{scale_filter},{sub_filter}" if scale_filter else sub_filter
             cmd = [
                 "ffmpeg", "-y",
@@ -235,24 +344,20 @@ def composite_overlay(
                 output_path,
             ]
         else:
-            from pipeline.captions import _get_aspect_ratio
-            src_w, src_h = _get_aspect_ratio(video_path)
-            if height:
-                out_h = height
-                # Same even-width rounding ffmpeg's scale=-2:H applies, computed here
-                # in Python so image overlay sizes can be calculated against the real output width.
-                out_w = round(src_w * out_h / src_h / 2) * 2
-            else:
-                out_w, out_h = src_w, src_h
+            filter_complex = _build_filter_complex(
+                image_assets, caption_overlays, out_w, out_h, sub_filter, scale_filter
+            )
 
-            filter_complex = _build_image_filter_complex(image_assets, out_w, out_h, sub_filter, scale_filter)
-
+            # Input order must match _build_filter_complex's indexing:
+            # video (0), image files (1..N), caption-state PNGs (N+1..).
             cmd = ["ffmpeg", "-y", "-i", video_path]
             for asset in image_assets:
                 styled_path = _style_image(asset['content']['path'], asset.get('style', {}))
                 if styled_path:
-                    styled_image_paths.append(styled_path)
+                    temp_paths.append(styled_path)
                 cmd += ["-i", styled_path or asset['content']['path']]
+            for item in caption_overlays:
+                cmd += ["-i", item['path']]
             cmd += [
                 "-filter_complex", filter_complex,
                 "-map", "[outv]", "-map", "0:a?",
@@ -261,14 +366,25 @@ def composite_overlay(
                 output_path,
             ]
 
+        # Source duration ≈ output duration (we never trim), so encode position
+        # over source duration gives the percent for the Export progress bar.
+        # Local import to mirror the _get_aspect_ratio pattern above and avoid
+        # pulling transcribe.py's Groq client into every overlay import.
+        total_duration = 0.0
+        if progress_callback:
+            from pipeline.transcribe import get_duration_seconds
+            try:
+                total_duration = get_duration_seconds(video_path)
+            except Exception:
+                # A failed probe only costs us the progress bar (helper treats
+                # duration 0 as "no reporting") — never the render itself.
+                pass
+
         # medium preset gives visually lossless quality; crf 18 is near-transparent
         # for re-encoded H.264. ultrafast/23 was the previous default and left
         # noticeable generation loss on high-res sources.
-        result = subprocess.run(cmd, capture_output=True)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.decode("utf-8", errors="replace"))
+        _run_ffmpeg_with_progress(cmd, total_duration, progress_callback)
         return output_path
     finally:
-        os.remove(ass_path)
-        for p in styled_image_paths:
+        for p in temp_paths:
             os.remove(p)

@@ -1,9 +1,14 @@
 import uuid
+from pathlib import Path
 
 from langchain_core.tools import tool
 
 from pipeline.captions import build_captions
-from pipeline.transcribe import transcribe
+from pipeline.transcribe import transcribe, transcription_available
+
+# UI_MAP.md lives at the repo root (pipeline/tools.py -> pipeline/ -> repo root)
+# and is tracked in git (unlike docs/) because read_ui_map reads it at runtime.
+_UI_MAP_PATH = Path(__file__).resolve().parent.parent / "UI_MAP.md"
 
 _HALIGN_X = {"left": 0.15, "center": 0.5, "right": 0.85}
 _VALIGN_Y = {"top": 0.1, "middle": 0.5, "bottom": 0.85}
@@ -39,17 +44,48 @@ def _fmt_time(seconds) -> str:
     return f"{m}:{s:02d}"
 
 
+# read_assets prints one line per asset with no pagination. Caption count scales with
+# words_per_chunk (down to 1 word/caption for karaoke-style captions), so even a short,
+# duration-capped video can produce thousands of assets — dumping all of them into a
+# single tool result can blow past the LLM's context window in one call. Past this count,
+# an unfiltered read_assets refuses and tells the agent to query a time window instead.
+_MAX_ASSETS_UNFILTERED = 40
+
+
 def make_tools(job_pk: int, video_path: str) -> list:
     @tool
     def transcribe_video() -> str:
         """Transcribe the uploaded video and extract word-level timestamps."""
         from videos.models import VideoJob
-        result = transcribe(video_path)
+        result = transcribe(video_path)  # runs Whisper, returns dict with 'text', 'segments', 'words'
         j = VideoJob.objects.get(pk=job_pk)
         j.transcript = result
         j.stage = VideoJob.Stage.TRANSCRIBED
         j.save(update_fields=["transcript", "stage"])
-        return f"Transcription complete — {len(result.get('words', []))} words extracted."
+        # Tell the agent the transcript is already readable in the UI so it points the user
+        # there instead of immediately calling read_transcript to answer "what's this about".
+        return (
+            f"Transcription complete — {len(result.get('words', []))} words extracted. "
+            f"The full transcript is now visible to the user in the Assets tab under \"Transcript\"."
+        )
+
+    @tool
+    def read_transcript() -> str:
+        """Return the full plain-text transcript of the video.
+        The transcript is already visible to the user in the Assets tab under "Transcript" —
+        for general questions like "what is this video about" or "what does it say", tell the
+        user to look there instead of calling this tool.
+        Only call this as a last resort when you need the actual transcript text yourself to
+        solve a specific problem, e.g. checking a caption's wording/spelling against what was
+        actually said, finding an exact quote or timestamp, or resolving an ambiguous word."""
+        from videos.models import VideoJob
+        j = VideoJob.objects.get(pk=job_pk)
+        if not j.transcript:
+            return "No transcript yet. Run transcribe_video first."
+        text = j.transcript.get('text', '')  # plain-text transcript, same field the UI panel reads
+        if not text:
+            return "Transcript has no text content."
+        return text
 
     @tool
     def generate_captions(words_per_chunk: int = None) -> str:
@@ -74,14 +110,27 @@ def make_tools(job_pk: int, video_path: str) -> list:
     def read_assets(start: float = None, end: float = None) -> str:
         """Return all assets currently on the timeline, including their IDs.
         Optionally filter to assets that overlap the given time window (start/end in seconds).
-        Always call this before update_asset or delete_asset to get the asset ID."""
+        Always call this before update_asset or delete_asset to get the asset ID.
+        If the timeline has many assets (e.g. dense captions), an unfiltered call will be
+        refused — pass a start/end window and query a few minutes at a time instead."""
         from videos.models import VideoJob
         j = VideoJob.objects.get(pk=job_pk)
         assets = j.assets or []
-        if start is not None and end is not None:
+        windowed = start is not None and end is not None
+        if windowed:
             assets = [a for a in assets if a['start'] < end and a['end'] > start]
         if not assets:
             return "No assets on the timeline" + (f" between {_fmt_time(start)} and {_fmt_time(end)}" if start is not None else "") + "."
+        # Unfiltered + too many to list safely — refuse and push the agent toward a
+        # windowed query instead of returning a response that could exceed the context limit.
+        if not windowed and len(assets) > _MAX_ASSETS_UNFILTERED:
+            timeline_end = max(a['end'] for a in assets)
+            return (
+                f"{len(assets)} assets on the timeline — too many to list at once. "
+                f"Timeline spans 0:00–{_fmt_time(timeline_end)}. "
+                f"Call read_assets again with a start/end window (e.g. a few minutes at a time) "
+                f"to see individual assets."
+            )
         lines = [f"{len(assets)} asset(s):"]
         for a in assets:
             style = a.get('style', {})
@@ -107,6 +156,7 @@ def make_tools(job_pk: int, video_path: str) -> list:
                     + f"font_size={style.get('font_size', '?')} "
                     f"color={style.get('color', '?')} "
                     f"bg={style.get('background', '?')} "
+                    f"highlight_color={style.get('highlight_color', 'none')} "
                     f"\"{content.get('text', '')[:50]}\""
                 )
         return "\n".join(lines)
@@ -349,6 +399,7 @@ def make_tools(job_pk: int, video_path: str) -> list:
         font: str = None,
         font_weight: str = None,
         font_italic: bool = None,
+        highlight_color: str = None,
     ) -> str:
         """Update a single asset on the timeline by its ID. Only the fields you pass will be changed.
         Use read_assets first to get the asset ID.
@@ -362,6 +413,11 @@ def make_tools(job_pk: int, video_path: str) -> list:
         'Roboto Mono', 'Inter', 'Poppins' — no other font names are available.
         font_weight: 'Regular', 'Bold', 'SemiBold', 'Light', etc.
         font_italic: true or false.
+        highlight_color: hex string, e.g. '#F59E0B', for reels/TikTok-style word-by-word
+        highlighting — only applies to caption assets (they carry per-word timestamps);
+        the currently-spoken word gets a highlighted background pill that moves as it plays.
+        Pass 'none' to turn highlighting back off. There is no default — ask the user what
+        color they want, since this is purely a stylistic choice.
         Changes appear instantly in the browser preview — no render needed."""
         from django.db import transaction
         from videos.models import VideoJob
@@ -401,6 +457,8 @@ def make_tools(job_pk: int, video_path: str) -> list:
                 style['font_weight'] = font_weight
             if font_italic is not None:
                 style['font_italic'] = font_italic
+            if highlight_color is not None:
+                style['highlight_color'] = None if highlight_color.lower() == 'none' else highlight_color
 
             j.assets = assets
             # If a previous render exists, mark it stale so the UI shows "Render & Download".
@@ -421,6 +479,7 @@ def make_tools(job_pk: int, video_path: str) -> list:
         background: str = None,
         font: str = None,
         font_italic: bool = None,
+        highlight_color: str = None,
     ) -> str:
         """Apply a style change or text transform to ALL caption assets in one operation.
         Use this instead of calling update_asset in a loop — it is reliable, atomic, and uses a single database write.
@@ -432,6 +491,10 @@ def make_tools(job_pk: int, video_path: str) -> list:
         'Dancing Script', 'Permanent Marker', 'Kalam', 'Playfair Display', 'Merriweather',
         'Lora', 'Libre Baskerville', 'JetBrains Mono', 'Space Mono', 'IBM Plex Mono',
         'Roboto Mono', 'Inter', 'Poppins' — no other font names are available.
+        highlight_color: hex string, e.g. '#F59E0B', for reels/TikTok-style word-by-word
+        highlighting — the currently-spoken word gets a highlighted background pill that
+        moves as it plays. Pass 'none' to turn highlighting back off. There is no default —
+        ask the user what color they want, since this is purely a stylistic choice.
         Changes appear instantly in the browser preview — no render needed."""
         from django.db import transaction
         from videos.models import VideoJob
@@ -472,6 +535,8 @@ def make_tools(job_pk: int, video_path: str) -> list:
                     style['font_weight'] = font_weight
                 if font_italic is not None:
                     style['font_italic'] = font_italic
+                if highlight_color is not None:
+                    style['highlight_color'] = None if highlight_color.lower() == 'none' else highlight_color
 
                 updated += 1
 
@@ -501,6 +566,8 @@ def make_tools(job_pk: int, video_path: str) -> list:
             parts.append(f"font={font}")
         if font_italic is not None:
             parts.append(f"font_italic={font_italic}")
+        if highlight_color is not None:
+            parts.append(f"highlight_color={highlight_color}")
         change_summary = ", ".join(parts) if parts else "no changes specified"
         return f"Updated {updated} caption(s): {change_summary}. Preview reflects the change — no re-render needed."
 
@@ -587,9 +654,60 @@ def make_tools(job_pk: int, video_path: str) -> list:
 
         return "\n".join(lines)
 
-    return [
-        transcribe_video, generate_captions, read_assets,
+    @tool
+    def read_ui_map(question: str = None) -> str:
+        """Look up where a button, tab, or panel is in the app's UI.
+        Call this whenever the user asks "where is X", "how do I find X", or seems
+        confused about the app's layout — never guess at UI locations from memory.
+        question is optional free text describing what the user is looking for (not
+        used to filter, just for your own framing); the full UI map is always returned."""
+        if not _UI_MAP_PATH.exists():
+            return "UI_MAP.md not found — cannot answer layout questions right now."
+        return _UI_MAP_PATH.read_text(encoding="utf-8")  # small doc, fine to return whole file
+
+    tools = [
+        generate_captions, read_assets,
         insert_asset, update_asset, bulk_update_captions, delete_asset,
         list_uploaded_files, insert_image_asset, update_image_asset,
-        check_transcript_quality,
+        check_transcript_quality, read_transcript, read_ui_map,
     ]
+    # Omit transcribe_video entirely when the Groq backend isn't configured, rather than
+    # letting the agent call it and fail — this way a missing/expired key costs one LLM
+    # turn (composing the "unavailable" reply from the system prompt note below) instead
+    # of a wasted tool round-trip plus ffmpeg extraction that was always going to fail.
+    if transcription_available():
+        tools.insert(0, transcribe_video)
+    return tools
+
+
+# Subset of make_tools()'s tools also shown to the user as a clickable "Skill" card
+# in the Skills tab (job_detail.html) — clicking one inserts `prompt` into the chat
+# input for the user to send/edit. Everything else make_tools() returns is agent-only:
+# it either needs an asset id the user has no way of knowing (update_asset,
+# update_image_asset, delete_asset), or is a read-only lookup the agent calls for
+# itself mid-conversation (read_assets, read_transcript, list_uploaded_files,
+# read_ui_map). Defined here (not duplicated in the template/JS) so this list can't
+# drift from the actual tool names the way _AVAILABLE_FONTS/_FONT_FAMILIES can.
+# Cards are shown unconditionally regardless of job stage — if a skill isn't valid
+# yet (e.g. Generate Captions before transcribing), the tool's own existing guard
+# message handles it (see generate_captions above).
+USER_FACING_SKILLS = [
+    {"tool": "transcribe_video", "label": "Transcribe",
+     "description": "Extract the spoken words and timestamps.",
+     "prompt": "Transcribe this video"},
+    {"tool": "generate_captions", "label": "Generate Captions",
+     "description": "Turn the transcript into timed caption chunks.",
+     "prompt": "Generate captions"},
+    {"tool": "insert_asset", "label": "Add Text Overlay",
+     "description": "Place a custom text overlay on the timeline.",
+     "prompt": "Add a text overlay that says \"...\" from 0:00 to 0:05"},
+    {"tool": "insert_image_asset", "label": "Place an Image",
+     "description": "Put an uploaded image or PDF page onto the timeline.",
+     "prompt": "Place [uploaded file name] on the timeline from 0:00 to 0:05"},
+    {"tool": "check_transcript_quality", "label": "Check Transcript Quality",
+     "description": "Flag low-confidence words or silence in the transcript.",
+     "prompt": "Check the transcript quality"},
+    {"tool": "bulk_update_captions", "label": "Restyle Captions",
+     "description": "Change the look of every caption at once.",
+     "prompt": "Change the caption style: make the font bold and the color amber"},
+]

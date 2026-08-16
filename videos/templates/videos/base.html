@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>min_vid</title>
+  <script>
+    // Applies the saved per-browser theme before first paint (blocking, synchronous
+    // script in <head>) so the page never flashes dark-then-light or vice versa.
+    (function () {
+      var saved = localStorage.getItem('theme');
+      document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
@@ -21,12 +29,41 @@
     }
   </script>
   <style>
+    /* Theme tokens: dark is the default palette (no attribute needed), light
+       overrides via [data-theme="light"] on <html>, set by the init script above
+       and toggleTheme() below. Every hardcoded color in this app's templates has
+       been swapped for one of these vars so the toggle actually repaints the UI. */
+    :root {
+      --bg-page: #121212;      --bg-surface: #1e1e1e;   --bg-raised: #252525;
+      --bg-sunken: #181818;    --bg-hover: #2a2a2a;      --bg-hover-2: #333333;
+      --border: #2a2a2a;       --border-strong: #3a3a3a;
+      --text-1: #f5f5f5; --text-2: #e5e7eb; --text-3: #d1d5db; --text-4: #9ca3af;
+      --text-5: #6b7280; --text-6: #4b5563; --text-7: #374151;
+      --success-bg: rgba(20,83,45,0.4);  --success-text: #4ade80;
+      --danger-bg: rgba(127,29,29,0.4);  --danger-text: #f87171;
+      --danger-bg-soft: rgba(239,68,68,0.1); --danger-border: rgba(239,68,68,0.3);
+      --warning-bg: rgba(120,53,15,0.4);
+      --accent-text: #fbbf24;
+    }
+    :root[data-theme="light"] {
+      --bg-page: #f7f7f5;      --bg-surface: #ffffff;   --bg-raised: #ffffff;
+      --bg-sunken: #f0f0ed;    --bg-hover: #eeeeec;      --bg-hover-2: #e2e2df;
+      --border: #e4e4e1;       --border-strong: #d4d4d1;
+      --text-1: #18181b; --text-2: #27272a; --text-3: #3f3f46; --text-4: #52525b;
+      --text-5: #71717a; --text-6: #a1a1aa; --text-7: #c4c4c8;
+      --success-bg: #dcfce7;  --success-text: #15803d;
+      --danger-bg: #fee2e2;   --danger-text: #b91c1c;
+      --danger-bg-soft: #fee2e2; --danger-border: #fca5a5;
+      --warning-bg: #fef3c7;
+      --accent-text: #b45309;
+    }
+
     /* Thin custom scrollbar, shared by every scrollable region (sidebar list,
        chat feed, main content) so the whole app has one consistent scrollbar look */
     .styled-scroll {
-      /* Firefox: thin scrollbar with matching dark colors */
+      /* Firefox: thin scrollbar, colors follow the active theme */
       scrollbar-width: thin;
-      scrollbar-color: #3a3a3a #1e1e1e;
+      scrollbar-color: var(--border-strong) var(--bg-surface);
     }
     /* Webkit (Chrome, Edge): custom scrollbar track and thumb */
     .styled-scroll::-webkit-scrollbar {
@@ -36,7 +73,7 @@
       background: transparent; /* invisible track blends into the panel behind it */
     }
     .styled-scroll::-webkit-scrollbar-thumb {
-      background: #3a3a3a; /* default thumb: subtle dark */
+      background: var(--border-strong); /* default thumb: subtle, theme-aware */
       border-radius: 9999px; /* pill shape */
       transition: background 0.2s ease;
     }
@@ -64,22 +101,22 @@
     }
   </style>
 </head>
-<body class="bg-[#121212] text-gray-100 h-screen flex overflow-hidden font-sans">
+<body class="bg-[var(--bg-page)] text-[var(--text-1)] h-screen flex overflow-hidden font-sans">
 
   <!-- Sidebar -->
-  <aside class="{% block aside_class %}w-64{% endblock %} flex-shrink-0 bg-[#1e1e1e] border-r border-[#2a2a2a] flex flex-col">
-    <div class="p-4 border-b border-[#2a2a2a]">
-      <a href="{% url 'upload' %}" class="text-amber-400 font-semibold text-lg tracking-tight">min_vid</a>
+  <aside class="{% block aside_class %}w-64{% endblock %} flex-shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col">
+    <div class="p-4 border-b border-[var(--border)]">
+      <a href="{% url 'upload' %}" class="text-[var(--accent-text)] font-semibold text-lg tracking-tight">min_vid</a>
     </div>
 
     {% block sidebar_body %}
     <nav class="flex-1 overflow-y-auto p-3 space-y-1 styled-scroll scroll-fade">
       {% for j in jobs %}
       <!-- group enables the child delete button to show only on row hover -->
-      <div class="group relative flex items-center rounded-lg hover:bg-[#2a2a2a] transition-colors {% if job and job.pk == j.pk %}bg-[#2a2a2a]{% endif %}">
+      <div class="group relative flex items-center rounded-lg hover:bg-[var(--bg-hover)] transition-colors {% if job and job.pk == j.pk %}bg-[var(--bg-hover)]{% endif %}">
         <a href="{% url 'job_detail' j.pk %}"
            class="flex items-center gap-3 px-3 py-2 flex-1 min-w-0">
-          <div class="w-10 h-10 rounded bg-[#2a2a2a] flex-shrink-0 flex items-center justify-center text-gray-500 text-xs overflow-hidden">
+          <div class="w-10 h-10 rounded bg-[var(--bg-hover)] flex-shrink-0 flex items-center justify-center text-[var(--text-5)] text-xs overflow-hidden">
             {% if j.input_file %}
               <!-- Use a muted video element so the browser renders the first frame as a thumbnail;
                    onloadedmetadata seeks to 0.1s because some browsers show a blank frame at t=0 -->
@@ -96,12 +133,12 @@
             {% endif %}
           </div>
           <div class="min-w-0 flex-1">
-            <p class="text-sm text-gray-200 truncate font-mono">{{ j.input_file.name|slice:"8:" }}</p>
+            <p class="text-sm text-[var(--text-2)] truncate font-mono">{{ j.input_file.name|slice:"8:" }}</p>
             <span class="text-xs font-mono
-              {% if j.status == 'done' %}text-green-400
-              {% elif j.status == 'failed' %}text-red-400
-              {% elif j.status == 'processing' %}text-amber-400
-              {% else %}text-gray-500{% endif %}">
+              {% if j.status == 'done' %}text-[var(--success-text)]
+              {% elif j.status == 'failed' %}text-[var(--danger-text)]
+              {% elif j.status == 'processing' %}text-[var(--accent-text)]
+              {% else %}text-[var(--text-5)]{% endif %}">
               {{ j.get_status_display }}
             </span>
           </div>
@@ -112,7 +149,7 @@
           {% csrf_token %}
           <button type="submit"
                   title="Delete"
-                  class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-[#3a2a2a] transition-colors">
+                  class="p-1.5 rounded text-[var(--text-6)] hover:text-[var(--danger-text)] hover:bg-[var(--danger-bg-soft)] transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0a1 1 0 011-1h4a1 1 0 011 1m-6 0h6"/>
@@ -121,26 +158,45 @@
         </form>
       </div>
       {% empty %}
-      <p class="text-xs text-gray-600 px-3 py-2 font-mono">No Jobs Yet</p>
+      <p class="text-xs text-[var(--text-6)] px-3 py-2 font-mono">No Jobs Yet</p>
       {% endfor %}
     </nav>
 
     <!-- Profile / sign-in footer -->
-    <div class="p-3 border-t border-[#2a2a2a] relative" id="profile-footer">
+    <div class="p-3 border-t border-[var(--border)] relative" id="profile-footer">
+
+      <!-- Theme toggle: lives here (not the header) regardless of login state, since
+           it's a per-browser display preference rather than an account setting.
+           Swaps data-theme on <html> and persists the choice to localStorage. -->
+      <button id="theme-toggle" onclick="toggleTheme()"
+              class="flex items-center gap-3 w-full px-3 py-2 mb-1 rounded-lg hover:bg-[var(--bg-hover)] transition-colors text-left">
+        <div class="w-8 h-8 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] flex-shrink-0
+                    flex items-center justify-center text-[var(--text-4)]">
+          <!-- Sun icon: shown in dark mode (click to switch to light) -->
+          <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.36-6.36l-1.06 1.06M6.7 17.3l-1.06 1.06m12.72 0l-1.06-1.06M6.7 6.7L5.64 5.64M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/>
+          </svg>
+          <!-- Moon icon: shown in light mode (click to switch to dark); starts hidden, swapped by toggleTheme() -->
+          <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </div>
+        <span id="theme-toggle-label" class="text-sm text-[var(--text-4)] font-mono">Dark mode</span>
+      </button>
 
       {% if user.is_authenticated %}
         <!-- Logged-in: avatar initials + username button that opens dropdown above -->
         <button id="profile-btn" onclick="toggleProfileMenu(event)"
-                class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[#2a2a2a] transition-colors text-left">
+                class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors text-left">
           <!-- Avatar circle showing first letter of username -->
           <div class="w-8 h-8 rounded-full bg-amber-500 flex-shrink-0 flex items-center justify-center
                       text-black text-sm font-bold uppercase">
             {{ user.username|slice:":1" }}
           </div>
-          <span class="text-sm text-gray-200 truncate flex-1 font-mono">{{ user.username }}</span>
+          <span class="text-sm text-[var(--text-2)] truncate flex-1 font-mono">{{ user.username }}</span>
           <!-- Chevron icon; flips when menu is open -->
           <svg id="profile-chevron" xmlns="http://www.w3.org/2000/svg"
-               class="w-4 h-4 text-gray-500 transition-transform duration-200 flex-shrink-0"
+               class="w-4 h-4 text-[var(--text-5)] transition-transform duration-200 flex-shrink-0"
                fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
           </svg>
@@ -148,38 +204,38 @@
 
         <!-- Dropdown panel — appears above the button, hidden by default -->
         <div id="profile-menu"
-             class="absolute bottom-full left-3 right-3 mb-2 bg-[#252525] border border-[#2a2a2a]
+             class="absolute bottom-full left-3 right-3 mb-2 bg-[var(--bg-raised)] border border-[var(--border)]
                     rounded-xl shadow-xl overflow-hidden hidden">
 
           <!-- User info header -->
-          <div class="px-4 py-3 border-b border-[#2a2a2a]">
-            <p class="text-sm text-gray-200 font-mono font-semibold">{{ user.username }}</p>
+          <div class="px-4 py-3 border-b border-[var(--border)]">
+            <p class="text-sm text-[var(--text-2)] font-mono font-semibold">{{ user.username }}</p>
             {% if user.email %}
-              <p class="text-xs text-gray-500 font-mono truncate mt-0.5">{{ user.email }}</p>
+              <p class="text-xs text-[var(--text-5)] font-mono truncate mt-0.5">{{ user.email }}</p>
             {% endif %}
           </div>
 
           <!-- Subscription badge -->
-          <div class="px-4 py-3 border-b border-[#2a2a2a] flex items-center justify-between">
+          <div class="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
             {% if user_plan == 'pro' %}
               <!-- Pro badge -->
               <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1 bg-amber-500/20 text-amber-400
+                <span class="inline-flex items-center gap-1 bg-amber-500/20 text-[var(--accent-text)]
                              text-xs font-mono font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">
                   ✦ Pro
                 </span>
               </div>
-              <span class="text-xs text-gray-500 font-mono">Active</span>
+              <span class="text-xs text-[var(--text-5)] font-mono">Active</span>
             {% else %}
               <!-- Free badge + upgrade CTA -->
               <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1 bg-[#2a2a2a] text-gray-400
-                             text-xs font-mono font-semibold px-2 py-0.5 rounded-full border border-[#3a3a3a]">
+                <span class="inline-flex items-center gap-1 bg-[var(--bg-hover)] text-[var(--text-4)]
+                             text-xs font-mono font-semibold px-2 py-0.5 rounded-full border border-[var(--border-strong)]">
                   Free Plan
                 </span>
               </div>
               <!-- Upgrade link — points to # until a checkout flow exists -->
-              <a href="#" class="text-xs text-amber-400 hover:text-amber-300 font-mono transition-colors">
+              <a href="#" class="text-xs text-[var(--accent-text)] hover:opacity-80 font-mono transition-colors">
                 Upgrade →
               </a>
             {% endif %}
@@ -189,19 +245,21 @@
           <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit"
-                    class="w-full text-left px-4 py-3 text-sm text-gray-400 hover:text-gray-200
-                           hover:bg-[#2a2a2a] transition-colors font-mono">
+                    class="w-full text-left px-4 py-3 text-sm text-[var(--text-4)] hover:text-[var(--text-2)]
+                           hover:bg-[var(--bg-hover)] transition-colors font-mono">
               Sign out
             </button>
           </form>
         </div>
 
-      {% else %}
-        <!-- Not logged in: single sign-in button, no dropdown needed -->
+      {% elif guest_id %}
+        <!-- Anonymous but already chose "Continue as guest" (videos.views.continue_as_guest):
+             show that identity instead of a "Sign in" link, and link through to sign in
+             for anyone who wants to keep/export their work. -->
         <a href="{% url 'login' %}"
-           class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[#2a2a2a] transition-colors">
-          <div class="w-8 h-8 rounded-full bg-[#2a2a2a] border border-[#3a3a3a] flex-shrink-0
-                      flex items-center justify-center text-gray-500">
+           class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors">
+          <div class="w-8 h-8 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] flex-shrink-0
+                      flex items-center justify-center text-[var(--text-5)]">
             <!-- Generic person icon -->
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
                  viewBox="0 0 24 24" stroke="currentColor">
@@ -209,7 +267,28 @@
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
             </svg>
           </div>
-          <span class="text-sm text-gray-400 font-mono">Sign in</span>
+          <div class="min-w-0 flex-1">
+            <!-- First 4 chars of the UUID string (before any dash) as a short, stable label -->
+            <p class="text-sm text-[var(--text-4)] font-mono truncate">Guest-{{ guest_id|stringformat:"s"|slice:":4" }}</p>
+            <p class="text-xs text-[var(--text-6)] font-mono truncate">Video not saved &middot; chat kept briefly</p>
+          </div>
+        </a>
+      {% else %}
+        <!-- Not logged in, no guest identity either — shouldn't normally be reached since
+             identity_required sends a fresh visitor to the login page first, but kept as
+             a safe fallback. -->
+        <a href="{% url 'login' %}"
+           class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors">
+          <div class="w-8 h-8 rounded-full bg-[var(--bg-hover)] border border-[var(--border-strong)] flex-shrink-0
+                      flex items-center justify-center text-[var(--text-5)]">
+            <!-- Generic person icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+                 viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          <span class="text-sm text-[var(--text-4)] font-mono">Sign in</span>
         </a>
       {% endif %}
 
@@ -217,6 +296,26 @@
     {% endblock %}
 
   <script>
+    // Reflects the current data-theme onto the toggle button's icon/label; called
+    // on load and after every toggle so the control never shows a stale state.
+    function syncThemeToggleUI() {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      const sun = document.getElementById('theme-icon-sun');
+      const moon = document.getElementById('theme-icon-moon');
+      const label = document.getElementById('theme-toggle-label');
+      if (sun) sun.classList.toggle('hidden', isLight);
+      if (moon) moon.classList.toggle('hidden', !isLight);
+      if (label) label.textContent = isLight ? 'Light mode' : 'Dark mode';
+    }
+    syncThemeToggleUI(); // run once on load to match whatever the head script already set
+
+    function toggleTheme() {
+      const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next); // per-browser only, no server round trip
+      syncThemeToggleUI();
+    }
+
     function toggleProfileMenu(e) {
       e.stopPropagation(); // prevent the document click handler from immediately closing it
       const menu = document.getElementById('profile-menu');
@@ -245,6 +344,41 @@
   <main class="flex-1 overflow-y-auto styled-scroll">
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Cookie consent banner: shown once per browser until Accept/Reject is clicked.
+       The only cookies this app sets today (session, csrftoken, guest_id) are strictly
+       necessary, so Reject doesn't disable anything yet — the mechanism exists so a
+       choice is recorded before any non-essential (e.g. analytics) cookie is ever added. -->
+  <div id="cookie-banner"
+       class="hidden fixed bottom-0 inset-x-0 z-50 bg-[var(--bg-surface)] border-t border-[var(--border)]
+              px-4 py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+    <p class="text-xs text-[var(--text-4)] font-mono flex-1">
+      We use a strictly necessary cookie to keep your session (signed-in or guest) working.
+      We don't use any analytics or advertising cookies.
+    </p>
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="setCookieConsent('rejected')"
+              class="text-sm font-mono px-3 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-4)]
+                     hover:bg-[var(--bg-hover)] transition-colors">
+        Reject
+      </button>
+      <button onclick="setCookieConsent('accepted')"
+              class="text-sm font-mono px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-semibold transition-colors">
+        Accept
+      </button>
+    </div>
+  </div>
+  <script>
+    // Persists the Accept/Reject choice per-browser (no server round trip — nothing
+    // server-side depends on it yet) and hides the banner once a choice exists.
+    function setCookieConsent(choice) {
+      localStorage.setItem('cookie_consent', choice);
+      document.getElementById('cookie-banner').classList.add('hidden');
+    }
+    if (!localStorage.getItem('cookie_consent')) {
+      document.getElementById('cookie-banner').classList.remove('hidden');
+    }
+  </script>
 
 </body>
 </html>

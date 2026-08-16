@@ -41,6 +41,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Required: shared core library (template tags + design system)
+    'dj_control_room_base',
+
+    # Add any panels you installed
+    'dj_redis_panel',
+    'dj_cache_panel',
+    'dj_urls_panel',
+    "dj_signals_panel",
+    "dj_celery_panel",
+
+    # Then add Django Control Room
+    'dj_control_room',
     'pipeline',
     'videos',
     'chat',
@@ -53,6 +65,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Must run after AuthenticationMiddleware (needs request.user resolved) — gives
+    # anonymous visitors a stable guest_id so they can own VideoJobs without an account.
+    'videos.middleware.GuestIdentityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -70,6 +85,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'user_accounts.context_processors.user_plan',  # injects user_plan into every template
+                'videos.context_processors.guest_identity',  # injects guest_id into every template
             ],
         },
     },
@@ -137,3 +153,62 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Redirect to upload page after login/logout (the app's natural home screen)
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+# Global emergency off-switch for the AI chat feature (e.g. cost spike, abuse wave).
+# Set CHAT_ENABLED=false in .env to disable chat app-wide without a code deploy;
+# defaults to enabled so local/dev setups without the var keep working.
+CHAT_ENABLED = os.environ.get('CHAT_ENABLED', 'true').lower() != 'false'
+
+# Hard cap on a single chat message's length (characters). Blocks someone from
+# pasting a huge wall of text and burning a large chunk of token budget in one
+# turn, independent of how much history the session has already built up.
+CHAT_MAX_MESSAGE_CHARS = int(os.environ.get('CHAT_MAX_MESSAGE_CHARS', 8000))
+
+# Cumulative token budget (prompt + completion, summed across every LLMCall)
+# for a single chat session. History is resent on every turn, so cost compounds
+# turn-over-turn even with small messages; once a session crosses this, it's
+# locked (ChatSession.is_over_budget) and the user must start a New Chat.
+CHAT_SESSION_TOKEN_BUDGET = int(os.environ.get('CHAT_SESSION_TOKEN_BUDGET', 150000))
+
+# --- Guest access ---
+# Anonymous visitors get a random per-browser identity (GuestIdentityMiddleware)
+# instead of an account, so they can upload/process a video without signing up.
+# Name of the cookie that carries a guest's identity (VideoJob.guest_id).
+GUEST_ID_COOKIE_NAME = 'guest_id'
+# Placeholders — both TTLs and the cookie age below are still TBD with the user;
+# these are reasonable stand-ins until an actual retention window is settled on.
+# How long a guest's uploaded video/output files survive before purge_guest_jobs
+# deletes just the files and marks the job Status.EXPIRED (row + chat kept).
+GUEST_VIDEO_TTL_HOURS = 6
+# How long the whole VideoJob row (and its chat history) survives before
+# purge_guest_jobs deletes it entirely — longer than the video TTL so a guest's
+# chat/audit trail outlives the video itself, similar to how e.g. Gemini's
+# incognito chats are described as temporary but not instantly gone.
+GUEST_CHAT_TTL_HOURS = 30 * 24  # 30 days
+# Cookie needs to live at least as long as GUEST_CHAT_TTL_HOURS — otherwise a guest
+# loses access to their still-existing chat history once the cookie expires first.
+GUEST_ID_COOKIE_MAX_AGE = GUEST_CHAT_TTL_HOURS * 60 * 60
+# Both TTLs above need purge_guest_jobs to actually run on a schedule (cron /
+# Windows Task Scheduler) in any real deployment — it does nothing on its own.
+# Cap on how many not-yet-purged jobs one guest identity can have open at once.
+# Guests have no account to rate-limit against, so this bounds per-browser storage
+# and (since guests get chat/agent access) LLM cost.
+GUEST_MAX_OPEN_JOBS = 3
+
+# settings.py
+DJ_CONTROL_ROOM_SETTINGS = {
+    # Global: Show panels in both Control Room and their own sections
+    'REGISTER_PANELS_IN_ADMIN': True,  # Default: False
+
+    # Per-panel: Override for specific panels
+    'PANEL_ADMIN_REGISTRATION': {
+        'dj_redis_panel': True,   # Redis in both places
+        'dj_cache_panel': False,  # Cache only in Control Room
+    },
+
+    # CSS: load built-in styles and/or inject your own
+    'LOAD_DEFAULT_CSS': True,
+    # Static paths are relative to app's static/ dir (e.g. 'myapp/css/overrides.css'
+    # for a file at myapp/static/myapp/css/overrides.css). Full URLs also accepted.
+    'EXTRA_CSS': [],
+}

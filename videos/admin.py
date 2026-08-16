@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import VideoJob, UploadedAsset
+from .models import VideoJob, UploadedAsset, GuestFeedback
 from chat.models import ChatSession
 
 
@@ -31,6 +31,17 @@ class UploadedAssetInline(admin.TabularInline):
 
 @admin.register(VideoJob)
 class VideoJobAdmin(admin.ModelAdmin):
-    list_display = ('id', 'status', 'stage', 'created_at')
-    readonly_fields = ('transcript', 'assets', 'error_message', 'created_at')
+    # total_*_tokens are read-only here — maintained by LLMCallbackHandler.on_llm_end
+    # (chat/callbacks.py), same as ChatSession's, one level up.
+    list_display = ('id', 'status', 'stage', 'total_prompt_tokens', 'total_completion_tokens', 'created_at')
+    readonly_fields = ('transcript', 'assets', 'error_message', 'created_at', 'total_prompt_tokens', 'total_completion_tokens')
     inlines = [ChatSessionInline, UploadedAssetInline]
+
+
+@admin.register(GuestFeedback)
+class GuestFeedbackAdmin(admin.ModelAdmin):
+    # Read-only browse list — feedback is submitted once by a guest and never
+    # edited afterward, so there's nothing for an admin to change here.
+    list_display = ('id', 'rating', 'guest_id', 'job', 'created_at')
+    list_filter = ('rating',)
+    readonly_fields = ('job', 'guest_id', 'rating', 'comment', 'created_at')

@@ -32,7 +32,13 @@ def build_captions(video_path: str, transcript: dict, words_per_chunk: int = Non
             'end': group[-1]['end'],
             'layer': 1,
             'position': {'x': 0.5, 'y': 0.85, 'anchor': 'center'},
-            'content': {'text': ' '.join(w['word'] for w in group)},
+            'content': {
+                'text': ' '.join(w['word'] for w in group),
+                # Per-word timestamps, kept alongside the joined text so renderers that
+                # want word-level highlighting (e.g. highlight_color) know exactly when
+                # each word is "active"; renderers that don't care just use 'text'.
+                'words': [{'word': w['word'], 'start': w['start'], 'end': w['end']} for w in group],
+            },
             'style': {
                 'font': 'Roboto',
                 'font_size': 72,

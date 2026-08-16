@@ -4,74 +4,84 @@
 {% block aside_class %}w-80{% endblock %}
 
 {% block sidebar_body %}
-<div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between">
-  <p class="text-xs text-gray-500 font-mono">Agent</p>
-  <button id="new-chat-btn" onclick="startNewChat()"
-          class="text-xs text-gray-600 hover:text-amber-500 font-mono transition-colors">
-    New Chat
-  </button>
-</div>
-<!-- Session history panel — a floating dropdown (not an inline expand) so opening
-     it never reflows the chat feed below; same absolute+outside-click pattern as
-     the profile menu in base.html -->
-<div class="relative border-b border-[#2a2a2a]" id="history-container">
-  <button onclick="toggleHistory(event)"
-          class="w-full px-4 py-2 flex items-center justify-between hover:bg-[#222] transition-colors">
-    <p class="text-xs text-gray-500 font-mono">History</p>
-    <span id="history-toggle" class="text-xs text-gray-600 font-mono">&#x25BE; Show</span>
-  </button>
+<!-- Consolidated header: History toggle + New Chat share one row (was two separate
+     rows plus a labeled budget row) so the chat feed below gets more vertical space. -->
+<div class="relative border-b border-[var(--border)]" id="history-container">
+  <div class="px-4 py-2 flex items-center justify-between gap-2">
+    <button onclick="toggleHistory(event)"
+            class="flex items-center gap-1 text-xs text-[var(--text-5)] hover:text-[var(--text-3)] font-mono transition-colors">
+      History <span id="history-toggle">&#x25BE;</span>
+    </button>
+    <button id="new-chat-btn" onclick="startNewChat()"
+            class="text-xs text-[var(--text-6)] hover:text-amber-500 font-mono transition-colors">
+      New Chat
+    </button>
+  </div>
+  <!-- Session token-budget bar — a hairline strip (no text label, so it costs no extra
+       row) that fills as this conversation's cumulative LLM usage (chat/views.py's
+       _session_tokens_used) approaches CHAT_SESSION_TOKEN_BUDGET. Exact numbers/percent
+       are still available via the title tooltip on hover. -->
+  <div class="h-[3px] bg-[var(--bg-hover)]" id="session-budget-row" title="">
+    <div id="session-budget-fill" class="h-full transition-all bg-[var(--text-6)]" style="width: 0%"></div>
+  </div>
   <!-- absolute + top-full: overlays on top of the chat feed instead of pushing it down;
        styled-scroll keeps this scrollbar consistent with the rest of the app -->
   <div id="history-list"
        class="hidden absolute left-2 right-2 top-full mt-1 z-20 overflow-y-auto max-h-44 px-2 py-2 space-y-0.5
-              styled-scroll bg-[#252525] border border-[#2a2a2a] rounded-xl shadow-xl"></div>
+              styled-scroll bg-[var(--bg-raised)] border border-[var(--border)] rounded-xl shadow-xl"></div>
 </div>
 
 <!-- styled-scroll: keep this scrollbar consistent with the rest of the app -->
 <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0 styled-scroll"></div>
-<div class="px-3 py-3 border-t border-[#2a2a2a] flex gap-2">
+<div class="px-3 py-3 border-t border-[var(--border)] flex gap-2">
   <input id="chat-input" type="text" placeholder="Tell the agent what to do…"
-         class="flex-1 bg-[#121212] text-gray-200 font-mono text-sm px-3 py-2 rounded-lg border border-[#2a2a2a] outline-none focus:border-amber-500 transition-colors"
+         class="flex-1 bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-amber-500 transition-colors"
+         oninput="updateCharCounter()"
          onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }">
-  <button id="chat-send" onclick="sendChat()"
-          class="bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm px-4 py-2 rounded-lg transition-colors">
-    Send
+  <!-- Send button doubles as the char-cap indicator: no more "N / 8000" text — instead
+       #chat-send-fill rises inside the button like a water level as CHAT_MAX_MESSAGE_CHARS
+       is approached (updateCharCounter() below). Exact numbers still available via the
+       button's title tooltip on hover. -->
+  <button id="chat-send" onclick="sendChat()" title="0 / {{ chat_max_message_chars }} characters"
+          class="relative overflow-hidden bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm px-4 py-2 rounded-lg transition-colors">
+    <span id="chat-send-fill" class="absolute inset-x-0 bottom-0 h-0 bg-amber-800/50 transition-[height,background-color] duration-150 pointer-events-none"></span>
+    <!-- id'd separately so setLoading() can swap just this text, not the whole button
+         (btn.textContent would wipe out the #chat-send-fill sibling span above) -->
+    <span id="chat-send-label" class="relative z-10">Send</span>
   </button>
 </div>
 {% endblock %}
 
 {% block content %}
+<!-- Skill cards for the Skills tab below — source of truth is USER_FACING_SKILLS in
+     pipeline/tools.py; json_script safely serializes it for buildSkillsGrid() to read. -->
+{{ skills|json_script:"skills-data" }}
 <div class="flex flex-col min-h-full">
 
   <!-- Header bar -->
-  <div class="sticky top-0 z-10 flex items-center gap-4 px-6 py-3 border-b border-[#2a2a2a] bg-[#1e1e1e]">
+  <div class="sticky top-0 z-10 flex items-center gap-4 px-6 py-3 border-b border-[var(--border)] bg-[var(--bg-surface)]">
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-3 min-w-0">
-        <h1 class="text-sm font-semibold text-gray-100 font-mono truncate">{{ job.input_file.name|slice:"8:" }}</h1>
-        <span class="text-xs text-gray-600 font-mono flex-shrink-0">{{ job.created_at|date:"Y-m-d H:i" }}</span>
+        <h1 class="text-sm font-semibold text-[var(--text-1)] font-mono truncate">
+          {% if job.input_file %}{{ job.input_file.name|slice:"8:" }}{% else %}Video expired{% endif %}
+        </h1>
       </div>
     </div>
 
-    <div class="flex items-center gap-2 flex-shrink-0">
-      <span data-badge="status" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold
-        {% if job.status == 'done' %}bg-green-900/40 text-green-400
-        {% elif job.status == 'failed' %}bg-red-900/40 text-red-400
-        {% elif job.status == 'processing' %}bg-amber-900/40 text-amber-400
-        {% else %}bg-[#2a2a2a] text-gray-400{% endif %}">
-        {% if job.status == 'processing' %}
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-        {% endif %}
-        {{ job.get_status_display }}
-      </span>
-      {% if job.stage %}
-        <span id="stage-badge" class="text-xs text-gray-600 font-mono">Stage: {{ job.get_stage_display }}</span>
-      {% endif %}
-    </div>
+    <!-- Manual feedback trigger — everyone (guest or signed-in), unlike the
+         auto-popup version which is guest-only (see IS_GUEST in the JS below).
+         Opens the same right-docked modal, bypassing the once-per-job
+         localStorage suppression since this is a deliberate click. -->
+    <button onclick="openFeedbackModal()"
+            class="flex-shrink-0 text-xs text-[var(--text-5)] hover:text-amber-500 font-mono px-3 py-2 rounded-lg border border-[var(--border-strong)] hover:border-amber-500 transition-colors">
+      Feedback
+    </button>
 
+    {% if user_plan == 'pro' %}
     <div id="export-area" class="flex-shrink-0">
       <div class="flex items-center gap-2">
         <select id="export-resolution"
-                class="bg-[#2a2a2a] text-gray-300 text-xs font-mono px-2 py-2 rounded-lg border border-[#3a3a3a] outline-none focus:border-amber-500 transition-colors">
+                class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-amber-500 transition-colors">
           <option value="original">Original</option>
           <option value="1080p">1080p</option>
           <option value="720p">720p</option>
@@ -84,62 +94,97 @@
         </button>
       </div>
     </div>
+    {% endif %}
   </div>
 
   <!-- Middle row: video player + pipeline panel -->
   <div class="flex gap-6 p-6 h-[calc(100vh-3.5rem)]">
 
     <!-- Video player -->
-    <div class="flex-[3] bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col min-h-0">
-      <p class="text-xs text-gray-500 font-mono mb-3">
+    <div class="flex-[3] bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col min-h-0">
+      {% if job.input_file %}
+      <p class="text-xs text-[var(--text-5)] font-mono mb-3">
         {% if job.stage == 'captioned' or job.stage == 'rendered' %}Preview{% else %}Original{% endif %}
       </p>
       <div class="relative flex-1 min-h-0">
-        <video id="preview-video" src="{{ job.input_file.url }}" controls class="w-full h-full object-contain rounded-lg block"></video>
+        <!-- no "controls" attribute: native controls are painted inside the video element
+             itself, so the overlay canvas (a sibling positioned on top for image/text
+             previews) always paints over them. Custom bar below replaces them instead. -->
+        <video id="preview-video" src="{{ job.input_file.url }}" class="w-full h-full object-contain rounded-lg block"></video>
         <canvas id="preview-canvas" class="absolute pointer-events-none rounded-lg"></canvas>
       </div>
+      <!-- Custom playback controls: lives outside the video/canvas wrapper above, so it's
+           never inside the frame rect the overlay canvas draws into. -->
+      <div id="video-controls" class="flex items-center gap-3 mt-3 flex-shrink-0">
+        <button id="play-pause-btn" onclick="togglePlayPause()" title="Play/Pause"
+                class="text-[var(--text-3)] hover:text-amber-500 transition-colors text-base flex-shrink-0 w-5 text-center">&#x25B6;</button>
+        <span id="video-time-current" class="text-xs text-[var(--text-6)] font-mono flex-shrink-0 tabular-nums">0:00</span>
+        <!-- Seek track: click/drag anywhere on it to scrub, handled by startSeekDrag() -->
+        <div id="video-seek-track" onmousedown="startSeekDrag(event)"
+             class="relative flex-1 h-1.5 bg-[var(--bg-page)] rounded-full cursor-pointer">
+          <div id="video-seek-fill" class="absolute inset-y-0 left-0 bg-amber-500 rounded-full pointer-events-none" style="width:0%"></div>
+        </div>
+        <span id="video-time-duration" class="text-xs text-[var(--text-6)] font-mono flex-shrink-0 tabular-nums">0:00</span>
+        <button id="mute-btn" onclick="toggleMute()" title="Mute/Unmute"
+                class="text-[var(--text-3)] hover:text-amber-500 transition-colors text-sm flex-shrink-0 w-5 text-center">&#x1F50A;</button>
+      </div>
+      {% else %}
+      <!-- Guest video past GUEST_VIDEO_TTL_HOURS (see purge_guest_jobs): the file is gone
+           but the row + chat history are kept until GUEST_CHAT_TTL_HOURS. No player, no
+           controls — nothing left to play or edit. -->
+      <div class="flex-1 flex flex-col items-center justify-center text-center px-6">
+        <p class="text-sm text-[var(--text-3)] font-mono mb-2">This video has expired and was removed.</p>
+        <p class="text-xs text-[var(--text-6)] font-mono">Your chat history for this job is kept a bit longer.</p>
+      </div>
+      {% endif %}
     </div>
 
-    <!-- Pipeline panel -->
-    <div id="pipeline-panel" class="flex-[2] bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col min-h-[240px]">
+    <!-- Right panel: Skills/Assets/Fonts/Welcome tabs (id kept as pipeline-panel/-body/-toggle
+         to avoid churning unrelated JS below — it's just the shared tab container, not Skills-specific) -->
+    <div id="pipeline-panel" class="flex-[2] bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col min-h-[240px]">
       <div class="flex items-center justify-between mb-3">
-        <!-- Tab bar: switches which of the three bodies below (#tab-pipeline/#tab-assets/#tab-welcome) is shown -->
+        <!-- Tab bar: switches which of the four bodies below (#tab-skills/#tab-assets/#tab-fonts/#tab-welcome) is shown -->
         <div class="flex items-center gap-4">
-          <button onclick="switchTab('pipeline')" data-tab-btn="pipeline"
-                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-amber-400 border-amber-500">
-            Pipeline
+          <button onclick="switchTab('skills')" data-tab-btn="skills"
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--accent-text)] border-amber-500">
+            Skills
           </button>
           <button onclick="switchTab('assets')" data-tab-btn="assets"
-                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--text-5)] border-transparent hover:text-[var(--text-3)]">
             Assets
           </button>
           <button onclick="switchTab('fonts')" data-tab-btn="fonts"
-                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--text-5)] border-transparent hover:text-[var(--text-3)]">
             Fonts
           </button>
           <button onclick="switchTab('welcome')" data-tab-btn="welcome"
-                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-gray-500 border-transparent hover:text-gray-300">
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--text-5)] border-transparent hover:text-[var(--text-3)]">
             Welcome
           </button>
         </div>
         <button onclick="togglePipeline()" id="pipeline-toggle"
-                class="text-gray-600 hover:text-gray-400 transition-colors text-xs font-mono">
+                class="text-[var(--text-6)] hover:text-[var(--text-4)] transition-colors text-xs font-mono">
           &#x25B4; Hide
         </button>
       </div>
       <div id="pipeline-body" class="flex flex-col flex-1 min-h-0">
 
-      <!-- Pipeline tab: status/progress + action buttons, populated by updatePipelinePanel() -->
-      <div id="tab-pipeline" class="flex flex-col flex-1 min-h-0">
-        <div id="pipeline-state"></div>
+      <!-- Skills tab: what the agent can do, as clickable cards. Clicking one inserts its
+           starter prompt into the chat input (editable, not auto-sent) — populated by
+           buildSkillsGrid() from #skills-data (USER_FACING_SKILLS in pipeline/tools.py).
+           No status/progress here — that's already shown per-turn in the chat via the
+           tool-name chips in appendMessage(). -->
+      <div id="tab-skills" class="flex flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
+        <p class="text-xs text-[var(--text-5)] font-mono mb-2">Click a skill to start it in the chat</p>
+        <div id="skills-grid" class="flex flex-col gap-2"></div>
       </div>
 
       <!-- Assets tab: upload control + transcript/caption/image asset sections, populated by updateAssetsTab(); starts hidden since Pipeline is the default tab -->
       <div id="tab-assets" class="hidden flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-gray-500 font-mono">Upload an image or PDF, then ask the agent to place it</p>
+          <p class="text-xs text-[var(--text-5)] font-mono">Upload an image or PDF, then ask the agent to place it</p>
           <button onclick="document.getElementById('asset-upload-input').click()"
-                  class="flex-shrink-0 text-xs font-mono bg-[#2a2a2a] hover:bg-[#333] text-gray-300 px-3 py-1.5 rounded-lg transition-colors">
+                  class="flex-shrink-0 text-xs font-mono bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-2)] text-[var(--text-3)] px-3 py-1.5 rounded-lg transition-colors">
             + Upload
           </button>
           <!-- accept mirrors _IMAGE_EXTS/_PDF_EXTS in videos/views.py; server re-validates regardless -->
@@ -155,13 +200,13 @@
            the typeface before naming it. Clicking a card inserts the font name
            into #chat-input — filled in by buildFontLibrary() below. -->
       <div id="tab-fonts" class="hidden flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
-        <p class="text-xs text-gray-500 font-mono mb-2">Click a font to insert its name into the chat box</p>
+        <p class="text-xs text-[var(--text-5)] font-mono mb-2">Click a font to insert its name into the chat box</p>
         <div id="font-library" class="grid grid-cols-2 gap-2"></div>
       </div>
 
       <!-- Welcome tab: fading tip carousel; text is set by the JS tip carousel below, starts hidden -->
       <div id="tab-welcome" class="hidden flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
-        <p id="welcome-tip" class="text-sm text-gray-400 font-mono leading-relaxed transition-opacity duration-500 opacity-0"></p>
+        <p id="welcome-tip" class="text-sm text-[var(--text-4)] font-mono leading-relaxed transition-opacity duration-500 opacity-0"></p>
       </div>
 
       </div><!-- /pipeline-body -->
@@ -171,12 +216,41 @@
 
   <!-- Asset timeline (populated by JS) -->
   <div id="timeline-section" class="px-6 pb-6 hidden">
-    <div class="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4">
-      <p class="text-xs text-gray-500 font-mono mb-4">Timeline</p>
+    <div class="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-4">
+      <p class="text-xs text-[var(--text-5)] font-mono mb-4">Timeline</p>
       <div id="timeline-tracks" class="space-y-2"></div>
     </div>
   </div>
 
+</div>
+
+<!-- Guest feedback modal: auto-shown once (per job, via localStorage — see
+     maybeShowFeedbackModal() below) after a guest's video reaches a real result
+     (stage captioned/rendered). True modal (dims the page) but docked to the
+     right edge instead of centered, per the agreed design. Never shown to
+     signed-in users (IS_GUEST gate in the JS). -->
+<div id="feedback-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex justify-end">
+  <div class="w-full max-w-sm h-full bg-[var(--bg-surface)] border-l border-[var(--border)] p-5 flex flex-col gap-4 overflow-y-auto styled-scroll">
+    <div class="flex items-start justify-between gap-2">
+      <p class="text-sm font-semibold text-[var(--text-1)] font-mono">How's it going so far?</p>
+      <button onclick="closeFeedbackModal()" class="text-[var(--text-6)] hover:text-[var(--text-3)] text-lg leading-none" aria-label="Close">&times;</button>
+    </div>
+    <p class="text-xs text-[var(--text-5)] font-mono">Quick, optional — helps us improve min_vid.</p>
+    <!-- 1-5 rating; buttons instead of a native <input type="range"> so each
+         value is a single unambiguous click/tap. -->
+    <div id="feedback-stars" class="flex gap-1">
+      {% for n in "12345" %}
+      <button type="button" onclick="setFeedbackRating({{ forloop.counter }})"
+              class="text-2xl leading-none text-[var(--text-6)] hover:text-amber-400 transition-colors">&#9733;</button>
+      {% endfor %}
+    </div>
+    <textarea id="feedback-comment" rows="4" placeholder="Anything you'd like to add? (optional)"
+              class="w-full bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-amber-500 transition-colors resize-none"></textarea>
+    <div class="flex gap-2 justify-end mt-auto">
+      <button onclick="closeFeedbackModal()" class="text-xs text-[var(--text-6)] hover:text-[var(--text-3)] font-mono px-3 py-2 transition-colors">Maybe later</button>
+      <button onclick="submitFeedback()" class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Submit</button>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -279,7 +353,7 @@
 
 .chat-prose p          { margin-bottom: 0.5rem; }
 .chat-prose p:last-child { margin-bottom: 0; }
-.chat-prose h1,.chat-prose h2,.chat-prose h3 { font-weight: 600; margin: 0.75rem 0 0.25rem; color: #f5f5f5; }
+.chat-prose h1,.chat-prose h2,.chat-prose h3 { font-weight: 600; margin: 0.75rem 0 0.25rem; color: var(--text-1); }
 .chat-prose h1 { font-size: 1rem; }
 .chat-prose h2 { font-size: 0.9rem; }
 .chat-prose h3 { font-size: 0.85rem; }
@@ -287,18 +361,27 @@
 .chat-prose ul { list-style-type: disc; }
 .chat-prose ol { list-style-type: decimal; }
 .chat-prose li { margin-bottom: 0.2rem; }
-.chat-prose strong { color: #f5f5f5; font-weight: 600; }
-.chat-prose code { background: #121212; color: #f59e0b; font-family: monospace; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
-.chat-prose pre  { background: #121212; padding: 0.6rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.5rem; }
-.chat-prose pre code { background: none; padding: 0; color: #d4d4d4; }
-.chat-prose hr   { border-color: #2a2a2a; margin: 0.5rem 0; }
+.chat-prose strong { color: var(--text-1); font-weight: 600; }
+.chat-prose code { background: var(--bg-page); color: #f59e0b; font-family: monospace; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+.chat-prose pre  { background: var(--bg-page); padding: 0.6rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.5rem; }
+.chat-prose pre code { background: none; padding: 0; color: var(--text-3); }
+.chat-prose hr   { border-color: var(--border); margin: 0.5rem 0; }
 </style>
 
 <script>
 const JOB_PK = {{ job.pk }};
-const CSRF_URL_TRANSCRIBE = "{% url 'run_transcribe' job.pk %}";
-const CSRF_URL_CAPTIONS   = "{% url 'run_build_captions' job.pk %}";
-const CSRF_URL_RENDER     = "{% url 'run_render' job.pk %}";
+// Static snapshot from page load — purge_guest_jobs runs offline, so this can't change
+// mid-session; used to permanently lock chat once a guest's video has been purged
+// (see applyLockState below), independent of any particular session's own lock state.
+const JOB_STATUS = "{{ job.status }}";
+// Gates the feedback modal (see maybeShowFeedbackModal below) — it's guest-only,
+// mirroring the sidebar's Guest-xxxx label which is also driven off guest_id.
+const IS_GUEST = {% if guest_id %}true{% else %}false{% endif %};
+const CSRF_URL_RENDER = "{% url 'run_render' job.pk %}";
+// Mirrors of the server-side caps (min_vid/settings.py) so the on-page counters
+// below match chat/views.py's enforcement exactly instead of hardcoding numbers twice.
+const CHAT_MAX_MESSAGE_CHARS = {{ chat_max_message_chars }};
+const CHAT_SESSION_TOKEN_BUDGET = {{ chat_session_token_budget }};
 
 let currentAssets = [];
 // Cache of loaded <img> elements for image assets, keyed by URL — drawFrame()
@@ -339,7 +422,9 @@ function appendMessage(role, text, toolsUsed) {
     // One chip per tool call, in call order; duplicates (e.g. two update_asset
     // calls in one turn) are shown separately rather than de-duplicated.
     chips.innerHTML = toolsUsed.map(name =>
-      `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400">&#x1F527; ${escapeHtml(name)}</span>`
+      // Theme-aware success tokens instead of hardcoded emerald-*, which read as
+      // near-invisible light-on-light text in light mode (emerald-900/40 bg + emerald-400 text).
+      `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded" style="background:var(--success-bg);color:var(--success-text)">&#x1F527; ${escapeHtml(name)}</span>`
     ).join('');
     row.appendChild(chips);
   }
@@ -348,7 +433,7 @@ function appendMessage(role, text, toolsUsed) {
     bubble.className = 'max-w-[85%] bg-amber-500 text-black text-sm font-mono px-3 py-2 rounded-xl rounded-br-sm';
     bubble.textContent = text;
   } else {
-    bubble.className = 'w-full bg-[#2a2a2a] text-gray-200 text-sm px-3 py-2 rounded-xl rounded-bl-sm chat-prose';
+    bubble.className = 'w-full bg-[var(--bg-hover)] text-[var(--text-2)] text-sm px-3 py-2 rounded-xl rounded-bl-sm chat-prose';
     bubble.innerHTML = marked.parse(text);
   }
   row.appendChild(bubble);
@@ -359,9 +444,92 @@ function appendMessage(role, text, toolsUsed) {
 function setLoading(on) {
   const btn = document.getElementById('chat-send');
   const input = document.getElementById('chat-input');
+  // Skip the transient loading toggle while permanently locked, so a stray
+  // refreshJobState() call can't accidentally re-enable a suspended session's input.
+  if (input.dataset.locked === 'true') return;
   btn.disabled = on;
   input.disabled = on;
-  btn.textContent = on ? '…' : 'Send';
+  // Set the label span's text, not btn.textContent — the latter would replace
+  // all of the button's children, including the #chat-send-fill span nested
+  // inside it (this previously broke updateCharCounter() on every send).
+  document.getElementById('chat-send-label').textContent = on ? '…' : 'Send';
+}
+
+// Permanent lock (vs setLoading's transient one) for a session the agent has
+// suspended — set via suspend_session on the backend (see chat/agent.py), or for
+// a job whose video has expired (reason 'expired' — see applyLockState below).
+function setChatLocked(on, reason) {
+  const btn = document.getElementById('chat-send');
+  const input = document.getElementById('chat-input');
+  input.dataset.locked = on ? 'true' : 'false';
+  btn.disabled = on;
+  input.disabled = on;
+  if (!on) {
+    input.placeholder = 'Tell the agent what to do…';
+  } else if (reason === 'expired') {
+    input.placeholder = 'This video has expired — no further edits are possible';
+  } else {
+    input.placeholder = 'This chat has been locked — start a New Chat to continue';
+  }
+}
+
+// A job-level expired lock (video purged) always wins over per-session state, and
+// unlike session locks it can't be cleared by starting a New Chat — the video is
+// gone for good. Called instead of setChatLocked directly everywhere the chat's
+// lock state gets (re)computed, so the two lock reasons never fight each other.
+function applyLockState(sessionDisabled, sessionOverBudget) {
+  if (JOB_STATUS === 'expired') {
+    setChatLocked(true, 'expired');
+  } else if (sessionDisabled || sessionOverBudget) {
+    setChatLocked(true, 'session');
+  } else {
+    setChatLocked(false);
+  }
+}
+
+// Water-fill level inside the Send button, mirroring settings.CHAT_MAX_MESSAGE_CHARS —
+// replaces the old "N / cap" text counter so the cap doesn't cost any layout space.
+// Fill rises 0-90% in a neutral dark-amber tone, turns warning red from 90% up to the cap,
+// then snaps to full height + solid red once actually over it (sendChat() below blocks the
+// send in that last state rather than round-tripping to the server). Exact numbers always
+// available via the button's title tooltip, updated every keystroke.
+function updateCharCounter() {
+  const len = document.getElementById('chat-input').value.length;
+  const btn = document.getElementById('chat-send');
+  const fill = document.getElementById('chat-send-fill');
+  const pct = Math.min(100, (len / CHAT_MAX_MESSAGE_CHARS) * 100);
+  const over = len > CHAT_MAX_MESSAGE_CHARS;
+  btn.title = `${len} / ${CHAT_MAX_MESSAGE_CHARS} characters`;
+  btn.classList.toggle('cursor-not-allowed', over);
+  fill.style.height = `${over ? 100 : pct}%`;
+  fill.classList.remove('bg-amber-800/50', 'bg-red-400/60', 'bg-red-600/90');
+  if (over) {
+    fill.classList.add('bg-red-600/90');
+  } else if (pct >= 90) {
+    fill.classList.add('bg-red-400/60');
+  } else {
+    fill.classList.add('bg-amber-800/50');
+  }
+}
+
+// Thin progress bar for this session's cumulative LLM token usage vs
+// settings.CHAT_SESSION_TOKEN_BUDGET — same 90%/100% neutral/amber/red thresholds
+// as the char counter above, so both indicators "mean" the same thing at a glance.
+function updateSessionBudgetBar(tokensUsed) {
+  const pct = Math.min(100, (tokensUsed / CHAT_SESSION_TOKEN_BUDGET) * 100);
+  const fill = document.getElementById('session-budget-fill');
+  const row = document.getElementById('session-budget-row');
+  fill.style.width = `${pct}%`;
+  // No on-page label (row is a hairline strip) — the percent/numbers live in the tooltip only.
+  row.title = `${tokensUsed.toLocaleString()} / ${CHAT_SESSION_TOKEN_BUDGET.toLocaleString()} tokens used this conversation (${Math.round(pct)}%)`;
+  fill.classList.remove('bg-[var(--text-6)]', 'bg-amber-500', 'bg-red-500');
+  if (tokensUsed >= CHAT_SESSION_TOKEN_BUDGET) {
+    fill.classList.add('bg-red-500');
+  } else if (pct >= 90) {
+    fill.classList.add('bg-amber-500');
+  } else {
+    fill.classList.add('bg-[var(--text-6)]');
+  }
 }
 
 // Appends a bouncing-dots bubble to the feed so the user knows the agent is
@@ -373,10 +541,10 @@ function showTyping() {
   row.id = 'typing-indicator';
   row.className = 'flex justify-start';
   row.innerHTML = `
-    <div class="bg-[#2a2a2a] px-3 py-2.5 rounded-xl rounded-bl-sm flex gap-1 items-center">
-      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.3s]"></span>
-      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.15s]"></span>
-      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce"></span>
+    <div class="bg-[var(--bg-hover)] px-3 py-2.5 rounded-xl rounded-bl-sm flex gap-1 items-center">
+      <span class="w-1.5 h-1.5 rounded-full bg-[var(--text-4)] animate-bounce [animation-delay:-0.3s]"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-[var(--text-4)] animate-bounce [animation-delay:-0.15s]"></span>
+      <span class="w-1.5 h-1.5 rounded-full bg-[var(--text-4)] animate-bounce"></span>
     </div>`;
   wrap.appendChild(row);
   wrap.scrollTop = wrap.scrollHeight;
@@ -416,6 +584,8 @@ async function startNewChat() {
   localStorage.setItem('chatSession_' + JOB_PK, sessionId);
   document.getElementById('chat-messages').innerHTML = '';
   displayedMessageCount = 0;
+  applyLockState(false, false); // brand new session — unlocked unless the job itself is expired
+  updateSessionBudgetBar(0); // brand new session — no LLM calls logged against it yet
   setLoading(false);
   // Refresh the history list so the new session appears highlighted.
   await loadSessionList();
@@ -427,10 +597,11 @@ async function switchSession(id) {
   localStorage.setItem('chatSession_' + JOB_PK, sessionId);
   document.getElementById('chat-messages').innerHTML = '';
   displayedMessageCount = 0;
+  applyLockState(false, false); // reset to unlocked; loadHistory() below re-locks if this session (or the job) actually is
   setLoading(false);
   // Close the dropdown now that a session's been picked, like any other selection menu.
   document.getElementById('history-list').classList.add('hidden');
-  document.getElementById('history-toggle').innerHTML = '&#x25BE; Show';
+  document.getElementById('history-toggle').innerHTML = '&#x25BE;';
   await loadHistory();
   await loadSessionList();
 }
@@ -442,7 +613,7 @@ function toggleHistory(e) {
   const list = document.getElementById('history-list');
   const toggle = document.getElementById('history-toggle');
   const nowHidden = list.classList.toggle('hidden');
-  toggle.innerHTML = nowHidden ? '&#x25BE; Show' : '&#x25B4; Hide';
+  toggle.innerHTML = nowHidden ? '&#x25BE;' : '&#x25B4;';
 }
 
 // Close the history dropdown when the user clicks anywhere outside it
@@ -453,7 +624,7 @@ document.addEventListener('click', function (e) {
     const list = document.getElementById('history-list');
     const toggle = document.getElementById('history-toggle');
     if (list) list.classList.add('hidden');
-    if (toggle) toggle.innerHTML = '&#x25BE; Show';
+    if (toggle) toggle.innerHTML = '&#x25BE;';
   }
 });
 
@@ -468,14 +639,14 @@ async function loadSessionList() {
       const row = document.createElement('div');
       row.className = 'px-2 py-1.5 rounded text-xs font-mono truncate transition-colors ' +
         (isActive
-          ? 'bg-amber-500/15 text-amber-400 cursor-default'
-          : 'text-gray-500 hover:bg-[#2a2a2a] hover:text-gray-300 cursor-pointer');
+          ? 'bg-amber-500/15 text-[var(--accent-text)] cursor-default'
+          : 'text-[var(--text-5)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-3)] cursor-pointer');
       // Format the timestamp to a short "Jul 2, 15:30" style label.
       const d = new Date(s.created_at);
       const stamp = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
                   + ', ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      const preview = s.preview || '<span class="text-gray-700 italic">Empty</span>';
-      row.innerHTML = `<span class="text-gray-600 mr-1.5">${stamp}</span>${preview}`;
+      const preview = s.preview || '<span class="text-[var(--text-7)] italic">Empty</span>';
+      row.innerHTML = `<span class="text-[var(--text-6)] mr-1.5">${stamp}</span>${preview}`;
       if (!isActive) row.addEventListener('click', () => switchSession(s.id));
       list.appendChild(row);
     });
@@ -507,7 +678,7 @@ function startPolling() {
       const msgs = data.messages || [];
       // Only append messages that have arrived since the page loaded.
       if (msgs.length > displayedMessageCount) hideTyping(); // clear dots before inserting real messages
-      msgs.slice(displayedMessageCount).forEach(m => appendMessage(m.role, m.content));
+      msgs.slice(displayedMessageCount).forEach(m => appendMessage(m.role, m.content, m.tools_used));
       displayedMessageCount = msgs.length;
       // Stop polling once an assistant reply is the last message.
       if (msgs.length && msgs[msgs.length - 1].role === 'assistant') {
@@ -537,9 +708,13 @@ async function loadHistory() {
     const msgs = data.messages || [];
     msgs.forEach(m => appendMessage(m.role, m.content, m.tools_used));
     displayedMessageCount = msgs.length;
+    // Lock immediately if this session was already suspended or hit its token budget
+    // in an earlier turn, rather than waiting for a failed send attempt to reveal it.
+    applyLockState(data.session_disabled, data.session_over_budget);
+    updateSessionBudgetBar(data.session_tokens_used || 0);
     // If the last stored message is a user turn, the agent is still running
     // (user message is saved before agent.invoke). Start polling to recover.
-    if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+    if (!data.session_disabled && !data.session_over_budget && msgs.length && msgs[msgs.length - 1].role === 'user') {
       setLoading(true);
       showTyping();
       startPolling();
@@ -553,9 +728,16 @@ async function sendChat() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text || !sessionId) return;
+  // Mirrors the server's settings.CHAT_MAX_MESSAGE_CHARS check (chat_message) client-side
+  // so an over-limit paste never round-trips at all — same message the server would 400 with.
+  if (text.length > CHAT_MAX_MESSAGE_CHARS) {
+    appendMessage('assistant', `Message is too long (${text.length} characters). Please shorten it to under ${CHAT_MAX_MESSAGE_CHARS} characters.`);
+    return;
+  }
   appendMessage('user', text);
   displayedMessageCount++; // account for the user message we just rendered
   input.value = '';
+  updateCharCounter(); // reset the "N / cap" display now that the input is cleared
   setLoading(true);
   showTyping();
   try {
@@ -567,9 +749,17 @@ async function sendChat() {
     });
     const data = await res.json();
     hideTyping();
-    appendMessage('assistant', data.reply || 'Done.', data.tools_used);
-    displayedMessageCount++;
-    await refreshJobState();
+    if (!res.ok) {
+      // Surface the real reason (locked session, chat disabled, etc.) instead of
+      // silently falling back to a fake "Done." — data.reply is absent on errors.
+      appendMessage('assistant', data.error || 'Something went wrong. Please try again.');
+    } else {
+      appendMessage('assistant', data.reply || 'Done.', data.tools_used);
+      displayedMessageCount++;
+      await refreshJobState();
+    }
+    if (data.session_tokens_used !== undefined) updateSessionBudgetBar(data.session_tokens_used);
+    if (data.session_disabled || data.session_over_budget) applyLockState(data.session_disabled, data.session_over_budget);
   } catch (e) {
     hideTyping();
     appendMessage('assistant', 'Something went wrong. Please try again.');
@@ -581,6 +771,7 @@ async function sendChat() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
+  applyLockState(false, false); // lock immediately if the job is expired, before the history fetch resolves
   await ensureSession();
   await Promise.all([loadHistory(), loadSessionList()]);
 }
@@ -590,11 +781,10 @@ init().catch(() => {});
 
 async function refreshJobState() {
   const data = await fetch(`/job/${JOB_PK}/state/`).then(r => r.json());
-  updateBadges(data);
-  updatePipelinePanel(data);
   updateAssetsTab(data);
   updateExportArea(data);
   updateTimeline(data.assets);
+  maybeShowFeedbackModal(data.stage);
   currentAssets = data.assets || [];
   drawFrame();
   // If the video is paused and no caption is active right now, scrub to the
@@ -610,36 +800,115 @@ async function refreshJobState() {
   }
 }
 
+// ── Guest feedback modal ────────────────────────────────────────────────────
+
+// Namespaced per job so a guest with multiple videos gets asked once per video,
+// not just once ever — but never twice for the same one (survives refresh).
+const FEEDBACK_SHOWN_KEY = `feedback_shown_${JOB_PK}`;
+let feedbackRating = 0;
+
+// Called on every refreshJobState() (page load + after each chat turn — there's
+// no separate polling loop for this, see refreshJobState's call sites). Fires the
+// first time this guest's job reaches a real result worth reacting to; export/
+// rendered is pro-only so guests realistically stop at captioned.
+function maybeShowFeedbackModal(stage) {
+  if (!IS_GUEST) return;
+  if (stage !== 'captioned' && stage !== 'rendered') return;
+  if (localStorage.getItem(FEEDBACK_SHOWN_KEY)) return;
+  localStorage.setItem(FEEDBACK_SHOWN_KEY, '1');
+  document.getElementById('feedback-modal').classList.remove('hidden');
+}
+
+// Manual trigger (header "Feedback" button) — available to everyone, unlike
+// maybeShowFeedbackModal's guest-only auto-popup. Bypasses FEEDBACK_SHOWN_KEY
+// entirely since a deliberate click should always open it, and resets any
+// leftover rating/comment from a previous open so it doesn't silently resubmit.
+function openFeedbackModal() {
+  feedbackRating = 0;
+  document.getElementById('feedback-comment').value = '';
+  setFeedbackRating(0);
+  document.getElementById('feedback-modal').classList.remove('hidden');
+}
+
+function setFeedbackRating(n) {
+  feedbackRating = n;
+  // Star index i (0-based) lights up amber if it's within the chosen rating.
+  document.querySelectorAll('#feedback-stars button').forEach((btn, i) => {
+    btn.classList.toggle('text-amber-400', i < n);
+    btn.classList.toggle('text-[var(--text-6)]', i >= n);
+  });
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedback-modal').classList.add('hidden');
+}
+
+async function submitFeedback() {
+  if (!feedbackRating) { closeFeedbackModal(); return; } // no rating chosen — treat like "Maybe later"
+  const comment = document.getElementById('feedback-comment').value.trim();
+  try {
+    await fetch(`/job/${JOB_PK}/feedback/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrf() },
+      body: `rating=${feedbackRating}&comment=${encodeURIComponent(comment)}`,
+    });
+  } catch (_) { /* best-effort — close regardless, not worth retry UI for this */ }
+  closeFeedbackModal();
+}
+
 // Capitalizes a single-word status/stage value for display; the raw lowercase
 // value itself keeps driving colorMap lookups and stage comparisons elsewhere.
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function updateBadges({ status, stage, status_display, stage_display }) {
-  const statusBadge = document.querySelector('[data-badge="status"]');
-  if (statusBadge) {
-    const colorMap = {
-      done: 'bg-green-900/40 text-green-400',
-      failed: 'bg-red-900/40 text-red-400',
-      processing: 'bg-amber-900/40 text-amber-400',
-    };
-    statusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-semibold ' +
-      (colorMap[status] || 'bg-[#2a2a2a] text-gray-400');
-    statusBadge.innerHTML = (status === 'processing'
-      ? '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>'
-      : '') + (status_display || capitalize(status));
-  }
-  const stageBadge = document.getElementById('stage-badge');
-  if (stageBadge) stageBadge.textContent = stage ? 'Stage: ' + (stage_display || capitalize(stage)) : '';
-}
-
-function updateExportArea({ stage, output_url, assets }) {
+function updateExportArea({ status, stage, progress }) {
   const area = document.getElementById('export-area');
   if (!area) return;
+
+  // A render is the step in flight exactly when processing starts from a
+  // captioned/rendered stage (transcribe/captions now run only via chat tools,
+  // so 'processing' here always means an export in progress).
+  const exporting = status === 'processing' && (stage === 'captioned' || stage === 'rendered');
+
+  if (status === 'failed') {
+    // Only render can fail through this button now (transcribe/captions failures
+    // are reported by the agent in chat instead) — Retry always re-fires render.
+    area.innerHTML = `<div class="flex items-center gap-2">
+      <span class="text-[var(--danger-text)] font-mono text-xs font-semibold">Export failed</span>
+      <button onclick="runPipeline('render')"
+        class="bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-2)] text-[var(--text-3)] text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Retry</button>
+    </div>`;
+    return;
+  }
+
+  if (exporting) {
+    const pct = Math.max(0, Math.min(100, progress || 0));
+    const fill = document.getElementById('export-progress-fill');
+    if (fill) {
+      // Update width/text in place — rebuilding innerHTML every poll would
+      // reset the CSS width transition and make the bar jump instead of glide.
+      fill.style.width = pct + '%';
+      document.querySelectorAll('.export-progress-label').forEach(el => { el.textContent = `Exporting… ${pct}%`; });
+      return;
+    }
+    // The button becomes the bar: an amber fill growing left→right across a
+    // button-shaped track. Two stacked copies of the label — a muted one on the
+    // track and a black one clipped inside the fill — keep the text readable on
+    // both sides of the fill edge. duration-[2000ms] matches the 2s poll cadence
+    // so the bar glides continuously between updates instead of stepping.
+    area.innerHTML = `<div class="relative w-44 h-9 rounded-lg overflow-hidden bg-[var(--bg-hover)] border border-[var(--border-strong)]">
+      <span class="export-progress-label absolute inset-0 flex items-center justify-center text-xs font-mono font-semibold text-[var(--text-4)]">Exporting… ${pct}%</span>
+      <div id="export-progress-fill" class="absolute inset-y-0 left-0 overflow-hidden bg-amber-500 transition-[width] duration-[2000ms] ease-linear" style="width:${pct}%">
+        <span class="export-progress-label absolute inset-y-0 left-0 w-44 flex items-center justify-center text-xs font-mono font-semibold text-black">Exporting… ${pct}%</span>
+      </div>
+    </div>`;
+    return;
+  }
+
   area.innerHTML = `<div class="flex items-center gap-2">
     <select id="export-resolution"
-      class="bg-[#2a2a2a] text-gray-300 text-xs font-mono px-2 py-2 rounded-lg border border-[#3a3a3a] outline-none focus:border-amber-500 transition-colors">
+      class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-amber-500 transition-colors">
       <option value="original">Original</option>
       <option value="1080p">1080p</option>
       <option value="720p">720p</option>
@@ -650,58 +919,21 @@ function updateExportArea({ stage, output_url, assets }) {
   </div>`;
 }
 
-function updatePipelinePanel({ status, stage, assets }) {
-  const el = document.getElementById('pipeline-state');
-  if (!el) return;
-  const count = (assets || []).length;
-
-  if (status === 'processing') {
-    const label = !stage ? 'Transcribing…' : stage === 'transcribed' ? 'Building Assets…' : 'Exporting…';
-    el.innerHTML = `<div class="flex-1 flex flex-col items-center justify-center py-6">
-      <div class="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p class="text-amber-400 font-mono text-sm">${label}</p>
-    </div>`;
-  } else if (status === 'failed') {
-    el.innerHTML = `<div class="flex flex-col items-center justify-center text-center gap-3 py-4">
-      <p class="text-red-400 font-mono text-sm font-semibold">Failed</p>
-      <button onclick="runPipeline('transcribe')"
-        class="mt-2 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">Retry</button>
-    </div>`;
-  } else if (!stage) {
-    el.innerHTML = `<div class="flex flex-col items-center justify-center text-center gap-3 py-4">
-      <p class="text-gray-500 font-mono text-sm">Ready to Transcribe</p>
-      <button onclick="runPipeline('transcribe')"
-        class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">Transcribe</button>
-    </div>`;
-  } else if (stage === 'transcribed') {
-    el.innerHTML = `<div class="flex flex-col gap-3 py-2">
-      <span class="text-green-400 font-mono text-xs">✓ Transcript Ready</span>
-      <button onclick="runPipeline('captions')"
-        class="w-full bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold py-2.5 rounded-lg transition-colors">Build Assets</button>
-    </div>`;
-  } else if (stage === 'captioned' || stage === 'rendered') {
-    el.innerHTML = `<div class="flex flex-col gap-2 py-2">
-      <span class="text-green-400 font-mono text-xs">✓ ${count} Asset(s) Ready</span>
-      <p class="text-gray-500 font-mono text-xs leading-relaxed">Preview is live in the player. Use the agent to adjust captions, then export when ready.</p>
-    </div>`;
-  }
-}
-
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-// Not persisted across reloads — the Pipeline tab is always the one shown on page load.
-let activeTab = 'pipeline';
+// Not persisted across reloads — the Skills tab is always the one shown on page load.
+let activeTab = 'skills';
 
 function switchTab(name) {
   activeTab = name;
-  ['pipeline', 'assets', 'fonts', 'welcome'].forEach(t => {
+  ['skills', 'assets', 'fonts', 'welcome'].forEach(t => {
     // Show only the matching tab body; the others use the same hidden+flex-col
     // pattern as #pipeline-body's own show/hide toggle above.
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
     const btn = document.querySelector(`[data-tab-btn="${t}"]`);
-    btn.classList.toggle('text-amber-400', t === name);
+    btn.classList.toggle('text-[var(--accent-text)]', t === name);
     btn.classList.toggle('border-amber-500', t === name);
-    btn.classList.toggle('text-gray-500', t !== name);
+    btn.classList.toggle('text-[var(--text-5)]', t !== name);
     btn.classList.toggle('border-transparent', t !== name);
   });
   // Only run the tip-rotation timer while its tab is actually visible.
@@ -743,13 +975,13 @@ function toggleAssetSection(key) {
 // `count` is omitted from the header when null (used for the Transcript section).
 function renderAssetSection(key, label, count, bodyHtml) {
   const isOpen = expandedAssetSections.has(key);
-  return `<div class="mb-2 border border-[#2a2a2a] rounded-lg overflow-hidden">
+  return `<div class="mb-2 border border-[var(--border)] rounded-lg overflow-hidden">
     <button onclick="toggleAssetSection('${key}')"
-            class="w-full flex items-center justify-between px-3 py-2 bg-[#181818] hover:bg-[#1f1f1f] transition-colors">
-      <span class="text-xs text-gray-300 font-mono">${label}${count != null ? ` (${count})` : ''}</span>
-      <span id="asset-section-toggle-${key}" class="text-xs text-gray-600 font-mono">${isOpen ? '&#x25B4;' : '&#x25BE;'}</span>
+            class="w-full flex items-center justify-between px-3 py-2 bg-[var(--bg-sunken)] hover:bg-[var(--bg-hover-2)] transition-colors">
+      <span class="text-xs text-[var(--text-3)] font-mono">${label}${count != null ? ` (${count})` : ''}</span>
+      <span id="asset-section-toggle-${key}" class="text-xs text-[var(--text-6)] font-mono">${isOpen ? '&#x25B4;' : '&#x25BE;'}</span>
     </button>
-    <div id="asset-section-body-${key}" class="${isOpen ? '' : 'hidden'} p-3 border-t border-[#2a2a2a]">
+    <div id="asset-section-body-${key}" class="${isOpen ? '' : 'hidden'} p-3 border-t border-[var(--border)]">
       ${bodyHtml}
     </div>
   </div>`;
@@ -761,9 +993,9 @@ function _assetRowHtml(a) {
   const label = a.type === 'image'
     ? `🖼 ${escapeHtml((a.content && a.content.name) || 'image')}`
     : escapeHtml((a.content && a.content.text) || '');
-  return `<div class="flex items-center justify-between bg-[#121212] border border-[#2a2a2a] rounded-lg px-3 py-2">
-    <span class="text-xs text-gray-300 font-mono truncate flex-1 mr-2">${label}</span>
-    <span class="text-[10px] text-gray-600 font-mono flex-shrink-0">${a.start.toFixed(1)}s–${a.end.toFixed(1)}s</span>
+  return `<div class="flex items-center justify-between bg-[var(--bg-page)] border border-[var(--border)] rounded-lg px-3 py-2">
+    <span class="text-xs text-[var(--text-3)] font-mono truncate flex-1 mr-2">${label}</span>
+    <span class="text-[10px] text-[var(--text-6)] font-mono flex-shrink-0">${a.start.toFixed(1)}s–${a.end.toFixed(1)}s</span>
   </div>`;
 }
 
@@ -773,8 +1005,8 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
 
   // Transcript is always its own section, placeholder until transcribe_video has populated job.transcript.
   const transcriptBody = transcript_text
-    ? `<div class="bg-[#121212] border border-[#2a2a2a] rounded-lg p-3 text-xs text-gray-300 font-mono leading-relaxed max-h-40 overflow-y-auto styled-scroll whitespace-pre-wrap">${escapeHtml(transcript_text)}</div>`
-    : `<p class="text-xs text-gray-600 font-mono">No transcript yet — run Transcribe on the Pipeline tab.</p>`;
+    ? `<div class="bg-[var(--bg-page)] border border-[var(--border)] rounded-lg p-3 text-xs text-[var(--text-3)] font-mono leading-relaxed max-h-40 overflow-y-auto styled-scroll whitespace-pre-wrap">${escapeHtml(transcript_text)}</div>`
+    : `<p class="text-xs text-[var(--text-6)] font-mono">No transcript yet — run Transcribe on the Pipeline tab.</p>`;
   let html = renderAssetSection('transcript', 'Transcript', null, transcriptBody);
 
   // Uploaded-but-not-yet-placed files — just a reference list; ask the agent in
@@ -784,9 +1016,9 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
   if (available.length) {
     const body = `<div class="space-y-1.5">
       ${available.map(f => `
-        <div class="flex items-center justify-between bg-[#121212] border border-[#2a2a2a] rounded-lg px-3 py-2">
-          <span class="text-xs text-gray-300 font-mono truncate flex-1 mr-2">🖼 ${escapeHtml(f.name)}</span>
-          <span class="text-[10px] text-gray-600 font-mono flex-shrink-0">not placed</span>
+        <div class="flex items-center justify-between bg-[var(--bg-page)] border border-[var(--border)] rounded-lg px-3 py-2">
+          <span class="text-xs text-[var(--text-3)] font-mono truncate flex-1 mr-2">🖼 ${escapeHtml(f.name)}</span>
+          <span class="text-[10px] text-[var(--text-6)] font-mono flex-shrink-0">not placed</span>
         </div>`).join('')}
     </div>`;
     html += renderAssetSection('uploaded', 'Uploaded Files', available.length, body);
@@ -804,7 +1036,7 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
 
   const types = Object.keys(byType).sort();
   if (!types.length) {
-    html += renderAssetSection('assets-empty', 'Assets', 0, `<p class="text-xs text-gray-600 font-mono">No assets yet — build captions on the Pipeline tab.</p>`);
+    html += renderAssetSection('assets-empty', 'Assets', 0, `<p class="text-xs text-[var(--text-6)] font-mono">No assets yet — build captions on the Pipeline tab.</p>`);
   } else {
     for (const t of types) {
       const group = byType[t];
@@ -821,7 +1053,7 @@ async function uploadAssetFile(file) {
   const status = document.getElementById('asset-upload-status');
   const input = document.getElementById('asset-upload-input');
   status.textContent = `Uploading ${file.name}…`;
-  status.className = 'text-xs text-gray-500 font-mono mb-2';
+  status.className = 'text-xs text-[var(--text-5)] font-mono mb-2';
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -833,11 +1065,11 @@ async function uploadAssetFile(file) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed.');
     status.textContent = `Uploaded ${data.created.length} file${data.created.length === 1 ? '' : 's'}.`;
-    status.className = 'text-xs text-green-400 font-mono mb-2';
+    status.className = 'text-xs text-[var(--success-text)] font-mono mb-2';
     await refreshJobState();
   } catch (e) {
     status.textContent = e.message || 'Upload failed.';
-    status.className = 'text-xs text-red-400 font-mono mb-2';
+    status.className = 'text-xs text-[var(--danger-text)] font-mono mb-2';
   } finally {
     input.value = '';
   }
@@ -887,13 +1119,11 @@ function stopTipCarousel() {
 
 // ── Pipeline AJAX ─────────────────────────────────────────────────────────────
 
+// transcribe/captions no longer go through here — they run via chat tools instead —
+// so 'render' is the only step this is ever called with.
 async function runPipeline(step) {
-  const urlMap = { transcribe: CSRF_URL_TRANSCRIBE, captions: CSRF_URL_CAPTIONS, render: CSRF_URL_RENDER };
-  const url = urlMap[step];
+  const url = step === 'render' ? CSRF_URL_RENDER : null;
   if (!url) return;
-
-  // Optimistically show spinner
-  updatePipelinePanel({ status: 'processing', stage: step === 'transcribe' ? '' : step === 'captions' ? 'transcribed' : 'captioned', assets: [] });
 
   // For the render step, include the resolution selection from the dropdown.
   // Other steps have no extra parameters so body stays empty.
@@ -902,25 +1132,42 @@ async function runPipeline(step) {
     const sel = document.getElementById('export-resolution');
     fetchBody = new FormData();
     fetchBody.append('resolution', sel ? sel.value : 'original');
+    // Optimistically swap the Export button for the 0% progress bar right away —
+    // the first poll is 2s out, and replacing the button also stops a second
+    // click from firing a duplicate render. Must happen after the resolution
+    // select is read above, because the bar markup replaces the select.
+    updateExportArea({ status: 'processing', stage: 'captioned', progress: 0 });
   }
 
-  await fetch(url, {
+  // Fire the pipeline POST WITHOUT awaiting it. The server views are synchronous —
+  // they only respond once the whole step is done (for render, the full ffmpeg
+  // encode) — so awaiting here would hold back the poll loop below until after
+  // completion, leaving the progress bar frozen at 0% until the download fired.
+  // requestDone instead feeds the loop's exit test so we still notice the response.
+  let requestDone = false;
+  fetch(url, {
     method: 'POST',
     headers: { 'X-CSRFToken': getCsrf() },
     body: fetchBody,
     redirect: 'manual',
-  });
+  }).finally(() => { requestDone = true; });
 
-  // Poll until status leaves 'processing'
+  // Poll while the step runs. 450 × 2s ≈ 15 min ceiling — comfortably above the
+  // slowest render a max-length (10 min) source should need at medium preset.
   let attempts = 0;
-  while (attempts < 120) {
+  while (attempts < 450) {
     await new Promise(r => setTimeout(r, 2000));
     const state = await fetch(`/job/${JOB_PK}/state/`).then(r => r.json());
-    updateBadges(state);
-    updatePipelinePanel(state);
+    // A poll can land before the POST has flipped status to 'processing' (slow
+    // connection). That snapshot is stale pre-step state: rendering it would
+    // flash the wrong panel and un-swap the Export bar, and the exit test below
+    // would misread it as completion — skip it and try again.
+    if (!requestDone && state.status !== 'processing') { attempts++; continue; }
     updateAssetsTab(state);
     updateExportArea(state);
-    if (state.status !== 'processing') {
+    // Done only when the POST has settled AND the job has left 'processing' —
+    // either signal alone can fire before the step's final state is saved.
+    if (requestDone && state.status !== 'processing') {
       updateTimeline(state.assets);
       currentAssets = state.assets || [];
       drawFrame();
@@ -1095,11 +1342,73 @@ function drawFrame() {
     const x = pos.x * canvas.width;
     const y = pos.y * canvas.height;
     const maxW = canvas.width * 0.9;
-    const lines = wrapText(ctx, text, maxW);
     const lineH = scaled * 1.3;
+    const pad = scaled * 0.25;
+
+    // Reels/TikTok-style word highlighting: only takes this path when the caption
+    // carries per-word timestamps (asset.content.words, from build_captions) AND a
+    // highlight_color has been set — otherwise fall through to the plain block render below.
+    const words = asset.content.words;
+    if (style.highlight_color && words && words.length) {
+      const spaceW = ctx.measureText(' ').width;
+      // Greedy word-wrap identical in spirit to wrapText() above, but tracking each
+      // word's own pixel width/timestamps instead of collapsing into line strings,
+      // since the highlight pill needs to know exactly where each word sits.
+      const wordLines = [];
+      let line = [];
+      let lineW = 0;
+      words.forEach(w => {
+        const wW = ctx.measureText(w.word).width;
+        const addW = line.length ? spaceW + wW : wW;
+        if (line.length && lineW + addW > maxW) {
+          wordLines.push({ words: line, width: lineW });
+          line = [];
+          lineW = 0;
+        }
+        line.push({ word: w.word, start: w.start, end: w.end, width: wW });
+        lineW += line.length > 1 ? spaceW + wW : wW;
+      });
+      if (line.length) wordLines.push({ words: line, width: lineW });
+
+      const totalH = wordLines.length * lineH;
+      const blockW = Math.max(...wordLines.map(l => l.width));
+
+      if (bg) {
+        ctx.fillStyle = bg;
+        const rx = x - blockW / 2 - pad;
+        const ry = y - totalH / 2 - pad * 0.5;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(rx, ry, blockW + pad * 2, totalH + pad, 6);
+        else ctx.rect(rx, ry, blockW + pad * 2, totalH + pad);
+        ctx.fill();
+      }
+
+      ctx.textAlign = 'left'; // per-word placement needs left-edge positioning, not centered fillText
+      wordLines.forEach((ln, i) => {
+        const lineY = y - totalH / 2 + lineH * i + lineH / 2;
+        let cx = x - ln.width / 2;
+        ln.words.forEach(w => {
+          const isActive = w.start <= t && t < w.end;
+          if (isActive) {
+            ctx.fillStyle = style.highlight_color;
+            ctx.beginPath();
+            const rx = cx - pad * 0.5, ry = lineY - lineH / 2 + pad * 0.15;
+            const rw = w.width + pad, rh = lineH - pad * 0.3;
+            if (ctx.roundRect) ctx.roundRect(rx, ry, rw, rh, 6);
+            else ctx.rect(rx, ry, rw, rh);
+            ctx.fill();
+          }
+          ctx.fillStyle = color;
+          ctx.fillText(w.word, cx, lineY);
+          cx += w.width + spaceW;
+        });
+      });
+      return;
+    }
+
+    const lines = wrapText(ctx, text, maxW);
     const totalH = lines.length * lineH;
     const blockW = Math.max(...lines.map(l => ctx.measureText(l).width));
-    const pad = scaled * 0.25;
 
     if (bg) {
       ctx.fillStyle = bg;
@@ -1116,6 +1425,31 @@ function drawFrame() {
       ctx.fillText(line, x, y - totalH / 2 + lineH * i + lineH / 2);
     });
   });
+}
+
+// ── Hover time tooltip ───────────────────────────────────────────────────────
+// Shared by the seek bar and the asset timeline below: hovering shows the
+// timestamp under the cursor so users know where a click will seek to.
+
+function attachHoverTimeTooltip(container, getDuration) {
+  // Container must be position:relative (both call sites already are) so the
+  // tooltip's "absolute" positions relative to it, not the page.
+  const tip = document.createElement('div');
+  tip.className = 'hidden absolute bottom-full mb-1 -translate-x-1/2 bg-[var(--bg-hover-2)] text-[var(--text-2)] ' +
+    'text-[10px] font-mono px-1.5 py-0.5 rounded whitespace-nowrap pointer-events-none z-20';
+  container.appendChild(tip);
+
+  container.addEventListener('mousemove', (e) => {
+    const duration = getDuration();
+    if (!duration || isNaN(duration) || duration <= 0) return;
+    const rect = container.getBoundingClientRect();
+    // Clamp so a cursor dragged past either edge still shows a valid in-range time.
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    tip.textContent = formatTime(frac * duration);
+    tip.style.left = (e.clientX - rect.left) + 'px';
+    tip.classList.remove('hidden');
+  });
+  container.addEventListener('mouseleave', () => tip.classList.add('hidden'));
 }
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -1160,12 +1494,12 @@ function updateTimeline(assets) {
       const { label, assets: layerAssets } = layers[l];
 
       const lbl = document.createElement('div');
-      lbl.className = 'h-7 flex flex-col items-end justify-center text-xs text-gray-600 font-mono leading-tight';
+      lbl.className = 'h-7 flex flex-col items-end justify-center text-xs text-[var(--text-6)] font-mono leading-tight';
       lbl.innerHTML = `<span>${label}</span><span class="text-amber-500/70 text-[10px]">${layerAssets.length}</span>`;
       labelCol.appendChild(lbl);
 
       const track = document.createElement('div');
-      track.className = 'h-7 bg-[#121212] rounded-md overflow-hidden relative';
+      track.className = 'h-7 bg-[var(--bg-page)] rounded-md overflow-hidden relative';
       layerAssets.forEach(asset => {
         const left = (asset.start / duration) * 100;
         const width = Math.max((asset.end - asset.start) / duration * 100, 0.3);
@@ -1190,6 +1524,9 @@ function updateTimeline(assets) {
     playhead.style.cssText = 'position:absolute;top:0;bottom:0;width:1.5px;background:#f59e0b;z-index:10;pointer-events:none';
     trackCol.appendChild(playhead);
 
+    // trackCol is rebuilt on every draw() call, so the tooltip is (re)attached fresh each time.
+    attachHoverTimeTooltip(trackCol, () => duration);
+
     grid.appendChild(labelCol);
     grid.appendChild(trackCol);
     container.appendChild(grid);
@@ -1207,7 +1544,7 @@ function updateTimeline(assets) {
     rulerTick.style.cssText = 'position:absolute;top:0;width:1.5px;height:5px;background:#f59e0b;pointer-events:none';
     rulerArea.appendChild(rulerTick);
     const rulerLabels = document.createElement('div');
-    rulerLabels.className = 'flex justify-between text-xs text-gray-700 font-mono pt-1.5';
+    rulerLabels.className = 'flex justify-between text-xs text-[var(--text-7)] font-mono pt-1.5';
     rulerLabels.innerHTML = [0, 0.25, 0.5, 0.75, 1].map(p => `<span>${(p * duration).toFixed(0)}s</span>`).join('');
     rulerArea.appendChild(rulerLabels);
     rulerRow.appendChild(rulerArea);
@@ -1234,6 +1571,79 @@ function updatePlayhead() {
   });
 }
 
+// ── Custom video controls ────────────────────────────────────────────────────
+// Replaces native <video controls>; see comment at the <video> tag for why.
+
+function formatTime(sec) {
+  // mm:ss display; guards NaN/Infinity since duration is unknown until metadata loads.
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function togglePlayPause() {
+  const video = document.getElementById('preview-video');
+  if (!video) return;
+  // Toggle instead of tracking separate state — video.paused is the source of truth.
+  if (video.paused) video.play().catch(() => {});
+  else video.pause();
+}
+
+function updatePlayPauseIcon() {
+  const video = document.getElementById('preview-video');
+  const btn = document.getElementById('play-pause-btn');
+  if (!video || !btn) return;
+  // Unicode glyphs match the rest of the UI (▾/▴ toggle button etc.) instead of an icon font.
+  btn.innerHTML = video.paused ? '&#x25B6;' : '&#x23F8;';
+}
+
+function toggleMute() {
+  const video = document.getElementById('preview-video');
+  if (!video) return;
+  video.muted = !video.muted;
+  updateMuteIcon();
+}
+
+function updateMuteIcon() {
+  const video = document.getElementById('preview-video');
+  const btn = document.getElementById('mute-btn');
+  if (!video || !btn) return;
+  btn.innerHTML = video.muted ? '&#x1F507;' : '&#x1F50A;';
+}
+
+function updateSeekBar() {
+  const video = document.getElementById('preview-video');
+  if (!video || isNaN(video.duration) || video.duration <= 0) return;
+  const pct = (video.currentTime / video.duration) * 100;
+  document.getElementById('video-seek-fill').style.width = pct + '%';
+  document.getElementById('video-time-current').textContent = formatTime(video.currentTime);
+  document.getElementById('video-time-duration').textContent = formatTime(video.duration);
+}
+
+function startSeekDrag(event) {
+  const video = document.getElementById('preview-video');
+  const track = document.getElementById('video-seek-track');
+  if (!video || !track || isNaN(video.duration) || video.duration <= 0) return;
+
+  // Shared by the initial mousedown and every subsequent mousemove while dragging.
+  function seekToClientX(clientX) {
+    const rect = track.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    video.currentTime = frac * video.duration;
+  }
+
+  seekToClientX(event.clientX);
+  function onMove(e) { seekToClientX(e.clientX); }
+  function onUp() {
+    // Listeners are on document (not the track) so dragging past the track's edges still works.
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 // ── Pipeline toggle ───────────────────────────────────────────────────────────
 
 function togglePipeline() {
@@ -1252,8 +1662,17 @@ const _previewVideo = document.getElementById('preview-video');
 if (_previewVideo) {
   _previewVideo.addEventListener('timeupdate', drawFrame);
   _previewVideo.addEventListener('timeupdate', updatePlayhead);
+  _previewVideo.addEventListener('timeupdate', updateSeekBar);
   _previewVideo.addEventListener('loadedmetadata', resizeCanvas);
+  _previewVideo.addEventListener('loadedmetadata', updateSeekBar);
+  // play/pause/ended flip the button icon; volumechange covers mute toggled via other code paths.
+  _previewVideo.addEventListener('play', updatePlayPauseIcon);
+  _previewVideo.addEventListener('pause', updatePlayPauseIcon);
+  _previewVideo.addEventListener('ended', updatePlayPauseIcon);
+  _previewVideo.addEventListener('volumechange', updateMuteIcon);
   new ResizeObserver(resizeCanvas).observe(_previewVideo);
+  // Seek bar exists once (unlike the asset timeline's trackCol, which is rebuilt per draw()).
+  attachHoverTimeTooltip(document.getElementById('video-seek-track'), () => _previewVideo.duration);
 }
 
 // Canvas text only picks up an @font-face once the browser has actually
@@ -1283,9 +1702,9 @@ function buildFontLibrary() {
   const grid = document.getElementById('font-library');
   grid.innerHTML = _FONT_FAMILIES.map(fam => `
     <button onclick="insertFontName('${fam}')"
-            class="text-left bg-[#2a2a2a] hover:bg-[#333] rounded-lg px-3 py-2 transition-colors overflow-hidden">
-      <p class="text-[10px] text-gray-500 font-mono mb-0.5">${fam}</p>
-      <p class="text-lg text-gray-100 truncate" style="font-family: '${fam}'">${fam}</p>
+            class="text-left bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-2)] rounded-lg px-3 py-2 transition-colors overflow-hidden">
+      <p class="text-[10px] text-[var(--text-5)] font-mono mb-0.5">${fam}</p>
+      <p class="text-lg text-[var(--text-1)] truncate" style="font-family: '${fam}'">${fam}</p>
     </button>
   `).join('');
 }
@@ -1301,6 +1720,33 @@ function insertFontName(name) {
   const cursor = start + name.length;
   input.focus();
   input.setSelectionRange(cursor, cursor);
+}
+
+// Skill cards for the Skills tab — data comes from USER_FACING_SKILLS (pipeline/tools.py)
+// via the #skills-data json_script tag, so labels/prompts can't drift from the actual tools.
+const SKILLS = JSON.parse(document.getElementById('skills-data').textContent);
+
+function buildSkillsGrid() {
+  const grid = document.getElementById('skills-grid');
+  grid.innerHTML = SKILLS.map((s, i) => `
+    <button onclick="insertSkillPrompt(${i})"
+            class="text-left bg-[var(--bg-hover)] hover:bg-[var(--bg-hover-2)] rounded-lg px-3 py-2 transition-colors">
+      <p class="text-sm text-[var(--text-1)] font-semibold">${escapeHtml(s.label)}</p>
+      <p class="text-xs text-[var(--text-5)] font-mono mt-0.5">${escapeHtml(s.description)}</p>
+    </button>
+  `).join('');
+}
+buildSkillsGrid();
+
+// Replaces the chat input with the skill's starter prompt (rather than inserting at the
+// cursor, like insertFontName does) since these are complete sentences meant to be edited
+// or sent as-is, not fragments spliced into a half-typed message.
+function insertSkillPrompt(index) {
+  const input = document.getElementById('chat-input');
+  const prompt = SKILLS[index].prompt;
+  input.value = prompt;
+  input.focus();
+  input.setSelectionRange(prompt.length, prompt.length);
 }
 
 refreshJobState();

@@ -22,6 +22,17 @@ from django.conf.urls.static import static
 from videos.views import serve_media
 
 urlpatterns = [
+    # Panel URLs (include each panel you installed)
+    path('admin/dj-redis-panel/', include('dj_redis_panel.urls')),
+    path('admin/dj-cache-panel/', include('dj_cache_panel.urls')),
+    path('admin/dj-urls-panel/', include('dj_urls_panel.urls')),
+    path("admin/dj_signals_panel/", include("dj_signals_panel.urls")),
+    path("admin/dj_celery_panel/", include("dj_celery_panel.urls")),
+    
+    # Control Room dashboard
+    path('admin/dj-control-room/', include('dj_control_room.urls')),
+    
+    # Django admin
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),  # login, logout, password reset
     path('', include('videos.urls')),
