@@ -8,7 +8,7 @@ from pipeline.transcribe import transcribe, transcription_available
 
 # UI_MAP.md lives at the repo root (pipeline/tools.py -> pipeline/ -> repo root)
 # and is tracked in git (unlike docs/) because read_ui_map reads it at runtime.
-_UI_MAP_PATH = Path(__file__).resolve().parent.parent / "UI_MAP.md"
+_UI_MAP_PATH = Path(__file__).resolve().parent.parent /"production_docs"/"UI_MAP.md"
 
 _HALIGN_X = {"left": 0.15, "center": 0.5, "right": 0.85}
 _VALIGN_Y = {"top": 0.1, "middle": 0.5, "bottom": 0.85}
