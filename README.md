@@ -13,13 +13,13 @@ An agent with video editing tools can cause three problems
 
 ## Architecture
 
-![Architecture](production_docs\preview\video_process.drawio.png)
+![Architecture](production_docs/preview/video_process.drawio.png)
 
 ## Agent 
 
 the agent itself is a Langgraph ReAct loop over an open ai compatible chat model, the pipeline for edting consists of tools rather then any sequence which the agent can use as needed, no hardcoded flow
 
-![Agent Loop](production_docs\preview\AI_request_flow.drawio.png)
+![Agent Loop](production_docs/preview/AI_request_flow.drawio.png)
 
 ## Key decisions
 #### Tools are classfied by write semantics
