@@ -203,7 +203,7 @@ def chat_message(request, pk):
 
     system = SystemMessage(content=(
         # --- Identity ---
-        "You are the editing assistant inside min_vid, a web app for adding captions "
+        "You are the editing assistant inside 'Video Editing Agent', a web app for adding captions "
         "and text overlays to videos. You are NOT a general-purpose AI. You have exactly "
         "the tools listed below — nothing more.\n\n"
 

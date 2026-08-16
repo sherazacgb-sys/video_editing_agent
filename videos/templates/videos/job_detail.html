@@ -235,7 +235,7 @@
       <p class="text-sm font-semibold text-[var(--text-1)] font-mono">How's it going so far?</p>
       <button onclick="closeFeedbackModal()" class="text-[var(--text-6)] hover:text-[var(--text-3)] text-lg leading-none" aria-label="Close">&times;</button>
     </div>
-    <p class="text-xs text-[var(--text-5)] font-mono">Quick, optional — helps us improve min_vid.</p>
+    <p class="text-xs text-[var(--text-5)] font-mono">Quick, optional — helps us improve Video Editing Agent.</p>
     <!-- 1-5 rating; buttons instead of a native <input type="range"> so each
          value is a single unambiguous click/tap. -->
     <div id="feedback-stars" class="flex gap-1">
@@ -378,7 +378,7 @@ const JOB_STATUS = "{{ job.status }}";
 // mirroring the sidebar's Guest-xxxx label which is also driven off guest_id.
 const IS_GUEST = {% if guest_id %}true{% else %}false{% endif %};
 const CSRF_URL_RENDER = "{% url 'run_render' job.pk %}";
-// Mirrors of the server-side caps (min_vid/settings.py) so the on-page counters
+// Mirrors of the server-side caps (Video Editing Agent/settings.py) so the on-page counters
 // below match chat/views.py's enforcement exactly instead of hardcoding numbers twice.
 const CHAT_MAX_MESSAGE_CHARS = {{ chat_max_message_chars }};
 const CHAT_SESSION_TOKEN_BUDGET = {{ chat_session_token_budget }};

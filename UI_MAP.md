@@ -12,7 +12,7 @@ free of internal jargon the agent shouldn't repeat verbatim to a user.
 - **Main panel** (everything right of the sidebar) — page-specific content.
 
 ### Left sidebar on the upload page and anywhere else that doesn't override it
-- Top: "min_vid" logo/link (goes to the upload page).
+- Top: "Video Editing Agent" logo/link (goes to the upload page).
 - Middle: list of the user's video jobs, each row a thumbnail + filename +
   status (Pending/Processing/Done/Failed). A trash-can icon appears on hover
   to delete that job.

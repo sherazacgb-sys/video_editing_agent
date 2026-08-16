@@ -1,4 +1,4 @@
-# min_vid
+# Video Editing Agent
 
 A Django app for turning a raw video/audio file plus supporting assets (images, PDFs) into a captioned, overlaid output video — driven by an AI chat agent instead of a manual editing UI.
 
