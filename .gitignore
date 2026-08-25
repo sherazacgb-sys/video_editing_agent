@@ -10,3 +10,8 @@ docs/
 CLAUDE.md
 report.md
 whisper_ai_test/
+
+# Let's Encrypt cert/key data created on the host by nginx/init-letsencrypt.sh —
+# private keys, never commit.
+certbot/
+

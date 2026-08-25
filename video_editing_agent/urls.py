@@ -14,10 +14,11 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import re
+
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
 
 from videos.views import serve_media
 
@@ -37,4 +38,8 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),  # login, logout, password reset
     path('', include('videos.urls')),
     path('', include('chat.urls')),
-] + static(settings.MEDIA_URL, view=serve_media)
+    # Registered directly (not via django.conf.urls.static.static(), which only adds
+    # its pattern when DEBUG=True) — serve_media does its own per-request ownership
+    # check, so unlike Django's raw static serving it's meant to run in prod too.
+    re_path(r'^%s(?P<path>.*)$' % re.escape(settings.MEDIA_URL.lstrip('/')), serve_media),
+]

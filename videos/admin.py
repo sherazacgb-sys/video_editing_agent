@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import VideoJob, UploadedAsset, GuestFeedback
+from .models import VideoJob, UploadedAsset, GuestFeedback, GuestIntake
 from chat.models import ChatSession
 
 
@@ -45,3 +45,12 @@ class GuestFeedbackAdmin(admin.ModelAdmin):
     list_display = ('id', 'rating', 'guest_id', 'job', 'created_at')
     list_filter = ('rating',)
     readonly_fields = ('job', 'guest_id', 'rating', 'comment', 'created_at')
+
+
+@admin.register(GuestIntake)
+class GuestIntakeAdmin(admin.ModelAdmin):
+    # Read-only browse list — same reasoning as GuestFeedbackAdmin: submitted
+    # once on the login page and never edited afterward.
+    list_display = ('id', 'guest_id', 'looking_for_engineer', 'referral_source', 'created_at')
+    list_filter = ('looking_for_engineer',)
+    readonly_fields = ('guest_id', 'referral_source', 'use_case', 'looking_for_engineer', 'created_at')

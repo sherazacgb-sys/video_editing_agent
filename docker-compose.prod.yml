@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Bind to a host path on the EBS volume (not a Docker-managed volume) so DB
+      # data is EBS-snapshottable and survives independently of the Docker daemon.
+      # Set DATA_ROOT in the host's .env if the EBS volume isn't mounted at /mnt/data.
+      - ${DATA_ROOT:-/mnt/data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build: .
+    # No source bind mount here (unlike dev's docker-compose.yml) — prod runs the
+    # image exactly as built; shipping a code change means rebuild + redeploy.
+    volumes:
+      - ${DATA_ROOT:-/mnt/data}/media:/app/media
+      - static_files:/app/staticfiles
+    env_file:
+      - .env
+    expose:
+      # Only reachable from nginx over the compose network — not published to the
+      # host, so the app can't be hit directly on :8000 bypassing TLS/nginx.
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - static_files:/app/staticfiles:ro
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # Loops forever, asking certbot to renew every 12h; certbot itself no-ops
+    # unless a cert is actually within its renewal window (~30 days of expiry).
+    entrypoint: >-
+      sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done"
+    restart: unless-stopped
+
+volumes:
+  # Static files only — safe to be a regular (non-EBS-backed) Docker volume since
+  # `collectstatic` regenerates its contents fresh on every deploy.
+  static_files:

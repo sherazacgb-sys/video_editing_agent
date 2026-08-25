@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -19,7 +20,7 @@ from pipeline.overlay import composite_overlay
 from pipeline.tools import USER_FACING_SKILLS  # curated tool subset rendered as Skill cards on job_detail
 from .access import get_accessible_job, get_accessible_jobs
 from .decorators import identity_required
-from .models import VideoJob, UploadedAsset, GuestFeedback
+from .models import VideoJob, UploadedAsset, GuestFeedback, GuestIntake
 
 # Generous enough for a photo or a several-page PDF, small enough to keep
 # per-page rasterization fast on the synchronous request path.
@@ -73,9 +74,31 @@ def continue_as_guest(request):
     # own LoginView applies to its next param — falling back to the upload page.
     if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         next_url = 'upload'
+
+    mint_identity = not request.user.is_authenticated and request.guest_id is None
+    if mint_identity:
+        # The login page's intake fields — required (HTML `required` attrs are the
+        # first line of defense, this is the server-side backstop for a bypassed
+        # or hand-crafted POST). Only enforced when we're actually minting a new
+        # identity, so a stale/duplicate submit from an already-identified browser
+        # still just redirects through instead of erroring.
+        referral_source = request.POST.get('referral_source', '').strip()
+        use_case = request.POST.get('use_case', '').strip()
+        looking_for_engineer = request.POST.get('looking_for_engineer', '')
+        if not referral_source or not use_case or looking_for_engineer not in ('yes', 'no'):
+            messages.error(request, 'Please answer all three questions to continue as a guest.')
+            login_url = f"{reverse('login')}?next={next_url}"
+            return redirect(login_url)
+
     response = redirect(next_url)
-    if not request.user.is_authenticated and request.guest_id is None:
+    if mint_identity:
         new_guest_id = uuid.uuid4()
+        GuestIntake.objects.create(
+            guest_id=new_guest_id,
+            referral_source=referral_source,
+            use_case=use_case,
+            looking_for_engineer=looking_for_engineer == 'yes',
+        )
         response.set_cookie(
             settings.GUEST_ID_COOKIE_NAME,
             str(new_guest_id),

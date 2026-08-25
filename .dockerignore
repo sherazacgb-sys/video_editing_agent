@@ -1,0 +1,32 @@
+# Local virtualenv — the image installs its own dependencies via pip instead.
+venv/
+
+# Python bytecode caches — regenerated at runtime, no reason to ship them.
+__pycache__/
+*.pyc
+
+# Local dev database and uploaded/rendered media — these are bind-mounted or
+# regenerated at runtime, not something the image should bake in.
+db.sqlite3
+media/
+staticfiles/
+
+# Secrets — passed in via docker-compose's env_file, never baked into the image.
+.env
+
+# Personal working notes and logs, not needed inside the container.
+docs/
+*.log
+report.md
+
+# Scratch/experiment directory, not part of the Django project.
+whisper_ai_test/
+
+# nginx/certbot's own runtime config and cert data — read by the nginx/certbot
+# containers via bind mount, not needed inside the `web` image build context.
+nginx/
+certbot/
+
+# VCS metadata — irrelevant to the running app.
+.git/
+.gitignore

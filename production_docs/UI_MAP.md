@@ -46,12 +46,20 @@ Shown to anyone not yet identified (no account session, no guest cookie) who
 tries to reach any page — e.g. a brand-new visitor hitting the site for the
 first time lands here before the upload page, not after it.
 
-- Username/password fields + "Sign in" button.
-- Below a divider: a "Continue as guest" button — skips creating an account
-  and goes straight to the upload page. A line under it warns that guest
-  videos aren't saved and sign-in is needed to keep/export them.
-- Once either path is taken, the choice sticks for that browser (a signed-in
-  session or a guest cookie) — this page isn't shown again until both expire.
+- Guest-only for now — the username/password sign-in form is commented out in
+  the template (not deleted; there's no working sign-up flow yet, so there'd
+  be no account to sign in with). Re-enable it once sign-up exists.
+- A short required intake form: "Where did you get this link?" (text), "What
+  are you going to use this for?" (textarea), and "Are you looking for an AI
+  engineer for your projects?" (yes/no) — answers are saved as a
+  `GuestIntake` row (browsable in Django admin) the moment the guest identity
+  is minted. All three are required (HTML `required`, backed by a server-side
+  check in `continue_as_guest`); leaving one blank on a raw POST redirects
+  back here with an error message instead of silently dropping the data.
+- "Continue as guest" button submits the intake form, skips creating an
+  account, and goes straight to the upload page.
+- Once a guest identity is minted (or a session exists), the choice sticks for
+  that browser — this page isn't shown again until it expires.
 
 ## Cookie consent banner — bottom bar, appears on every page until dismissed
 

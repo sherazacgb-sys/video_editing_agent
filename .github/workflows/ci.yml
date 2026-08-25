@@ -1,0 +1,53 @@
+name: CI
+
+# Runs on every push and PR — catches breakage before it reaches main, let alone
+# before a deploy. Doesn't touch AWS/ECR at all, so no secrets are needed here.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # A real Postgres instance for the test run — matches prod (settings.py has
+    # no sqlite fallback since the switch off it), spun up and torn down per run.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: video_editing_agent_test
+          POSTGRES_USER: video_editing_agent
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        # Waits for Postgres to actually accept connections before the test step
+        # runs, same reason docker-compose.yml's `db` has a healthcheck.
+        options: >-
+          --health-cmd="pg_isready -U video_editing_agent -d video_editing_agent_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      # Dummy value — only used to satisfy Django's required SECRET_KEY check, never
+      # a real secret since this job doesn't touch anything but its throwaway test DB.
+      DJANGO_SECRET_KEY: ci-only-secret-key
+      POSTGRES_DB: video_editing_agent_test
+      POSTGRES_USER: video_editing_agent
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python manage.py test

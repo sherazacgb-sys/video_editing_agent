@@ -1,0 +1,46 @@
+services:
+  db:
+    # Official Postgres image — no custom Dockerfile needed for the DB side.
+    image: postgres:16-alpine
+    environment:
+      # Postgres's own image reads these to initialize the cluster on first
+      # boot; must match the POSTGRES_* values settings.py reads from .env.
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Named volume so the data directory persists across container
+      # recreation (e.g. redeploying just the `web` image) and image upgrades,
+      # unlike the container's own writable layer.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # Lets `web` wait for Postgres to actually accept connections, not just
+      # for the container process to start — avoids a startup-race crash.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    # Overrides the image's default gunicorn CMD — dev wants runserver's
+    # autoreload-on-save behavior, not a prod-style WSGI server.
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind-mount the project into the container so code changes on the host
+      # are picked up by runserver's auto-reload without rebuilding the image.
+      - .:/app
+    env_file:
+      # Pulls in DJANGO_SECRET_KEY, GROQ_API_KEY, DEEPSEEK_*, and POSTGRES_*
+      # from the existing local .env instead of duplicating them here.
+      - .env
+    depends_on:
+      db:
+        # Waits for the healthcheck above rather than just container start,
+        # so Django doesn't try to connect before Postgres is ready.
+        condition: service_healthy
+
+volumes:
+  postgres_data:

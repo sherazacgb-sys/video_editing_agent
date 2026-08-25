@@ -27,9 +27,35 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Defaults to True so local/dev setups without the var keep working unchanged;
+# the prod .env sets DJANGO_DEBUG=false explicitly (same opt-out pattern as CHAT_ENABLED below).
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
 
-ALLOWED_HOSTS = []
+# Comma-separated host/domain list read from env — empty by default, which is fine
+# while DEBUG=True (Django auto-allows localhost/127.0.0.1 in that mode); prod .env
+# sets DJANGO_ALLOWED_HOSTS=sherazlabs.co.uk since DEBUG=False requires this to be non-empty.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
+
+# Django checks the request's Origin header against this for unsafe (POST/PUT/etc.)
+# requests — needed in addition to ALLOWED_HOSTS once the site is served over HTTPS.
+CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
+
+# nginx terminates TLS and proxies to gunicorn over plain HTTP, so Django can't tell
+# the request was HTTPS from the connection itself — it trusts nginx's
+# X-Forwarded-Proto header instead. Only safe because nginx (not the client) sets it.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Redirect/secure-cookie settings only make sense once TLS is actually in front of the
+# app (prod, behind nginx) — leave them off in DEBUG/local dev where there's no HTTPS.
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+# Starts at one week rather than the commonly-recommended one year — HSTS is a
+# browser-enforced, hard-to-undo commitment to HTTPS for the domain; a short window
+# limits the damage if the cert/proxy setup turns out to have a problem after deploy.
+SECURE_HSTS_SECONDS = 0 if DEBUG else 60 * 60 * 24 * 7
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = False  # preload registration is effectively irreversible; opt in later once confident
 
 
 # Application definition
@@ -99,11 +125,17 @@ WSGI_APPLICATION = 'video_editing_agent.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        'OPTIONS': {
-            'timeout': 20,
-        },
+        # Postgres instead of sqlite3 so concurrent agent tool-call writes
+        # (LLMCall rows, session/job token totals) don't serialize behind
+        # sqlite's single whole-file write lock. Connects to the `db`
+        # service in docker-compose.yml by default; override POSTGRES_HOST
+        # to point elsewhere.
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'video_editing_agent'),
+        'USER': os.environ.get('POSTGRES_USER', 'video_editing_agent'),
+        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
+        'HOST': os.environ.get('POSTGRES_HOST', 'db'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
@@ -144,6 +176,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+# Destination for `collectstatic` — nginx serves straight from this directory in prod
+# (Django itself stops serving static files once DEBUG=False). Unused locally since
+# runserver serves STATICFILES_DIRS directly without needing collectstatic.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'

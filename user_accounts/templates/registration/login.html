@@ -42,6 +42,11 @@
 
     <div class="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-6">
 
+      {% comment %}
+      Sign-in form disabled for now — there's no working sign-up flow yet, so
+      there's no way for a visitor to have an account to sign in with. Kept
+      here (not deleted) so it's a one-step re-enable once sign-up exists.
+
       {% if form.errors %}
         <!-- Show auth errors without revealing whether the username or password was wrong -->
         <p class="text-[var(--danger-text)] text-sm mb-4 bg-[var(--danger-bg-soft)] border border-[var(--danger-border)] rounded-lg px-3 py-2">
@@ -84,20 +89,63 @@
         <span class="text-xs text-[var(--text-6)] font-mono">or</span>
         <div class="flex-1 h-px bg-[var(--border)]"></div>
       </div>
+      {% endcomment %}
 
-      <!-- Continue as guest: mints a guest_id cookie (videos.views.continue_as_guest)
-           instead of signing in — same `next` so it lands wherever sign-in would have. -->
+      {% if messages %}
+        <!-- Server-side backstop errors from continue_as_guest (e.g. an intake
+             question left blank) — HTML `required` normally catches this first. -->
+        {% for message in messages %}
+          <p class="text-[var(--danger-text)] text-sm mb-4 bg-[var(--danger-bg-soft)] border border-[var(--danger-border)] rounded-lg px-3 py-2">
+            {{ message }}
+          </p>
+        {% endfor %}
+      {% endif %}
+
+      <!-- Continue as guest: collects a short intake (referral source, intended use,
+           hiring interest) then mints a guest_id cookie (videos.views.continue_as_guest)
+           — same `next` so it lands wherever sign-in would have. -->
       <form method="post" action="{% url 'continue_as_guest' %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="space-y-4">
+          <div>
+            <label for="id_referral_source" class="block text-xs text-[var(--text-4)] mb-1 font-mono">Where did you get this link?</label>
+            <input type="text" name="referral_source" id="id_referral_source" required
+                   class="w-full bg-[var(--bg-page)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-1)]
+                          focus:outline-none focus:border-amber-500 transition-colors placeholder-[var(--text-6)]">
+          </div>
+
+          <div>
+            <label for="id_use_case" class="block text-xs text-[var(--text-4)] mb-1 font-mono">What are you going to use this for?</label>
+            <textarea name="use_case" id="id_use_case" required rows="2"
+                      class="w-full bg-[var(--bg-page)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-1)]
+                             focus:outline-none focus:border-amber-500 transition-colors placeholder-[var(--text-6)] resize-none"></textarea>
+          </div>
+
+          <div>
+            <span class="block text-xs text-[var(--text-4)] mb-1 font-mono">Are you looking for an AI engineer for your projects?</span>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-1.5 text-sm text-[var(--text-1)]">
+                <input type="radio" name="looking_for_engineer" value="yes" required class="accent-amber-500">
+                Yes
+              </label>
+              <label class="flex items-center gap-1.5 text-sm text-[var(--text-1)]">
+                <input type="radio" name="looking_for_engineer" value="no" required class="accent-amber-500">
+                No
+              </label>
+            </div>
+          </div>
+        </div>
+
         <button type="submit"
-                class="w-full bg-transparent border border-[var(--border)] hover:bg-[var(--bg-page)]
-                       text-[var(--text-1)] text-sm font-semibold py-2 rounded-lg transition-colors">
+                class="mt-6 w-full bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold
+                       py-2 rounded-lg transition-colors">
           Continue as guest
         </button>
       </form>
       <p class="text-xs text-[var(--text-6)] font-mono text-center mt-3">
-        Guest videos aren't saved — sign in to keep and export yours.
+        Guest videos aren't saved.
       </p>
     </div>
   </div>

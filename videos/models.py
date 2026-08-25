@@ -84,6 +84,22 @@ class GuestFeedback(models.Model):
         ordering = ['-created_at']
 
 
+class GuestIntake(models.Model):
+    # Collected once per new guest identity, on the same submit that mints the
+    # guest_id cookie (views.continue_as_guest) — the login page is guest-only
+    # for now (no working sign-up yet), so this is the only account-adjacent
+    # data captured about a visitor.
+    guest_id = models.UUIDField(db_index=True)
+    referral_source = models.CharField(max_length=255)
+    use_case = models.TextField()
+    # Recruiting/lead signal for the site owner, not an actual account permission.
+    looking_for_engineer = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
 class UploadedAsset(models.Model):
     # A file the user uploaded from the Assets panel — an image directly, or an
     # image rasterized from one page of an uploaded PDF (see source_pdf below).
