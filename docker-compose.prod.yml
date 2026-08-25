@@ -18,7 +18,11 @@ services:
     restart: unless-stopped
 
   web:
-    build: .
+    # Pulled from ECR instead of built locally — the instance's attached IAM role
+    # (AmazonEC2ContainerRegistryReadOnly) lets `docker compose pull` authenticate
+    # without any access keys stored on the box. Shipping a code change means
+    # build + push (from a dev machine) + `docker compose pull && up -d` here.
+    image: 477972659025.dkr.ecr.eu-west-2.amazonaws.com/sherazlabs-ecr:latest
     # No source bind mount here (unlike dev's docker-compose.yml) — prod runs the
     # image exactly as built; shipping a code change means rebuild + redeploy.
     volumes:
