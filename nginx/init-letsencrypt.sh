@@ -30,9 +30,13 @@ if [ ! -e "$data_path/conf/options-ssl-nginx.conf" ] || [ ! -e "$data_path/conf/
   echo "Downloading recommended TLS parameters..."
   mkdir -p "$data_path/conf"
   # Certbot's own recommended nginx TLS config (protocols/ciphers) and DH params —
-  # referenced by nginx/conf.d/app.conf but not vendored into this repo.
-  curl -s "https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf" > "$data_path/conf/options-ssl-nginx.conf"
-  curl -s "https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem" > "$data_path/conf/ssl-dhparams.pem"
+  # referenced by nginx/conf.d/app.conf but not vendored into this repo. Paths below
+  # match the certbot repo's current layout (certbot-nginx merged into the main
+  # certbot package, default branch renamed master -> main) — the old master-branch
+  # certbot-nginx path 404s and silently wrote the 404 page into these files, which
+  # made nginx fail to parse them and crash-loop on every start.
+  curl -s "https://raw.githubusercontent.com/certbot/certbot/main/certbot/src/certbot/_internal/plugins/nginx/tls_configs/options-ssl-nginx.conf" > "$data_path/conf/options-ssl-nginx.conf"
+  curl -s "https://raw.githubusercontent.com/certbot/certbot/main/certbot/src/certbot/ssl-dhparams.pem" > "$data_path/conf/ssl-dhparams.pem"
 fi
 
 echo "Creating a dummy certificate so nginx can start..."
