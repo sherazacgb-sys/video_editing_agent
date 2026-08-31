@@ -1,0 +1,347 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sheraz Labs</title>
+
+  <!-- Same favicon as the rest of the app -->
+  <link rel="icon" type="image/png" href="{% static 'images/sherazlabs_favicon.png' %}">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Space Grotesk for headline/display type (technical but has personality, not the default
+       Inter-everywhere SaaS look), Inter for body prose, JetBrains Mono repurposed as a
+       "timecode" utility face (00:00:12:04-style labels) instead of a terminal prompt — this
+       page dropped the dark terminal direction entirely, so mono now only ever labels time/data. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    // Registers the three web fonts above as Tailwind utilities so the markup can stay declarative.
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Space Grotesk"', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Single bright palette — this page is a dedicated light marketing page now, not a dark
+       theme with a light override, so there's no data-theme branching to maintain here. */
+    :root {
+      --bg: #f7f8fa; --surface: #ffffff; --border: #e7e9ee;
+      --ink: #14171f; --ink-muted: #5b6270;
+      --accent: #2f6fd6;       /* blue "playhead" accent — CTAs + the timeline-ruler motif, matches the app's own CTA blue */
+      --accent-done: #14b8a6;  /* teal — reserved for "rendered/complete" states: stats, live badges */
+      --shadow-card: 0 12px 30px -18px rgba(20, 23, 31, 0.16);
+    }
+
+    /* Shared shell for every section: caps line length on wide monitors without the "narrow
+       column floating in dead space" feel — the user's explicit complaint about the last pass. */
+    .container-wide { max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 1.25rem; padding-right: 1.25rem; }
+    @media (min-width: 640px) { .container-wide { padding-left: 2rem; padding-right: 2rem; } }
+
+    /* One reusable card recipe instead of repeating border/shadow utilities everywhere, which
+       also sidesteps the class-vs-element CSS-specificity trap noted in CLAUDE.md. */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; box-shadow: var(--shadow-card); }
+
+    /* Timeline-ruler tick texture — the page's signature motif (echoed in the hero and the
+       pipeline section), a literal video-editor time ruler rather than a generic divider line. */
+    .ruler { background-image: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 14px); }
+
+    /* Hero's one entrance moment: each direct child fades/slides up in sequence on load. The
+       only motion on the page besides card hover — everything else stays still. */
+    @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .hero-in > * { animation: fade-up .6s ease both; }
+    .hero-in > *:nth-child(2) { animation-delay: .08s; }
+    .hero-in > *:nth-child(3) { animation-delay: .16s; }
+    .hero-in > *:nth-child(4) { animation-delay: .24s; }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-in > * { animation: none; }
+    }
+  </style>
+</head>
+<body class="bg-[var(--bg)] text-[var(--ink)] min-h-screen font-body antialiased">
+
+  <!-- ===================== Nav ===================== -->
+  <header class="border-b border-[var(--border)] bg-[var(--surface)]">
+    <div class="container-wide flex items-center justify-between py-4">
+      <a href="/" class="flex items-center gap-2.5">
+        <!-- Same mark used as the app's favicon/sidebar logo elsewhere, so the brand is consistent across the site -->
+        <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-7 h-7 rounded-md">
+        <span class="font-display font-bold text-lg tracking-tight">Sheraz Labs</span>
+      </a>
+      <div class="flex items-center gap-5">
+        <!-- Contact icons: same three links as before, just recolored for a light page -->
+        <nav class="hidden sm:flex items-center gap-4 text-[var(--ink-muted)]">
+          <a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" aria-label="GitHub"
+             class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1 .11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
+          </a>
+          <a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" aria-label="LinkedIn"
+             class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.11 20.45H3.56V9h3.55v11.45z"/></svg>
+          </a>
+          <a href="mailto:sherazacgb@gmail.com" aria-label="Email" class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3h15A2.5 2.5 0 0 1 22 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 18.5v-13zm2.2.3 7.4 6.16a.6.6 0 0 0 .8 0l7.4-6.16A.5.5 0 0 0 19.5 5h-15a.5.5 0 0 0-.3.8z"/></svg>
+          </a>
+        </nav>
+        <!-- Primary CTA, repeated in the header so it's reachable without scrolling to the hero -->
+        <a href="{% url 'upload' %}"
+           class="inline-flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[#2559ad] focus-visible:bg-[#2559ad] text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors outline-none">
+          Try it &rarr;
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== Hero ===================== -->
+  <section class="container-wide py-14 sm:py-20">
+    <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+      <!-- Left: product pitch. Product-led (not bio-led) since the CTA drops straight into the
+           tool itself — the personal/portfolio framing lives further down the page instead. -->
+      <div class="hero-in">
+        <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-4">AI video editing agent</p>
+        <h1 class="font-display text-4xl sm:text-5xl font-bold leading-[1.1] mb-5">
+          Caption and edit your video by chatting &mdash; not clicking through timelines.
+        </h1>
+        <p class="text-[var(--ink-muted)] text-base sm:text-lg leading-relaxed mb-8 max-w-lg">
+          Upload a video, tell the agent what you want, and it transcribes, captions, and
+          renders it for you. Built by an applied AI engineer who ships automation for real
+          operations teams &mdash; the numbers below are from that work, not a demo.
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <a href="{% url 'upload' %}"
+             class="inline-flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[#2559ad] focus-visible:bg-[#2559ad] text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors outline-none">
+            Try the Video Agent &rarr;
+          </a>
+          <a href="#pipeline" class="text-sm font-semibold text-[var(--ink-muted)] hover:text-[var(--ink)] focus-visible:text-[var(--ink)] transition-colors">
+            See how it works &darr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Right: custom illustration (no screenshots) — a mocked video frame with a
+           chat-generated caption bar and the agent's instruction bubble, standing in for the
+           actual product interaction: you ask for something, the video changes. -->
+      <div class="hero-in">
+        <div class="relative aspect-video w-full rounded-2xl overflow-hidden shadow-[var(--shadow-card)]"
+             style="background: linear-gradient(135deg, #14171f 0%, #2b3040 100%);">
+          <!-- Centered play control, standing in for the video itself -->
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#14171f"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+          </div>
+          <!-- Generated-caption mock: two text-line bars over a translucent panel -->
+          <div class="absolute left-4 right-4 sm:right-auto sm:w-2/3 bottom-4 bg-black/55 backdrop-blur-sm rounded-lg px-3 py-2.5 space-y-1.5">
+            <div class="h-2 w-3/4 bg-white/75 rounded-full"></div>
+            <div class="h-2 w-1/2 bg-white/50 rounded-full"></div>
+          </div>
+          <!-- Agent "instruction" bubble that implies the caption above was just requested -->
+          <div class="absolute top-4 right-4 bg-white rounded-xl rounded-tr-sm shadow-lg px-3 py-2 max-w-[170px]">
+            <p class="font-mono text-[10px] leading-snug text-[var(--ink-muted)]">&ldquo;add bold captions, teal accent&rdquo;</p>
+          </div>
+        </div>
+
+        <!-- Timeline ruler beneath the frame — first appearance of the signature motif, with a
+             coral playhead and a real-looking timecode instead of a generic caption -->
+        <div class="relative mt-6 h-1.5 rounded-full ruler">
+          <span class="absolute -top-[7px] h-4 w-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--bg)]" style="left: 38%;"></span>
+        </div>
+        <p class="font-mono text-xs text-[var(--ink-muted)] mt-2">00:00:12:04</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Pipeline ("how it works") ===================== -->
+  <section id="pipeline" class="bg-[var(--surface)] border-y border-[var(--border)]">
+    <div class="container-wide py-14 sm:py-20">
+      <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">The pipeline</p>
+      <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">From upload to render in three steps</h2>
+
+      <!-- Ruler motif reused as the connective thread between the three real pipeline stages —
+           order matters here (it's a literal sequence), so a timeline reads truer than 01/02/03 badges. -->
+      <div class="relative">
+        <div class="absolute top-[7px] left-0 right-0 h-1.5 rounded-full ruler hidden sm:block"></div>
+        <div class="grid sm:grid-cols-3 gap-8 sm:gap-6 relative">
+
+          <div class="flex flex-col items-start">
+            <span class="w-4 h-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-4"></span>
+            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent)]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
+              </svg>
+            </span>
+            <h3 class="font-display font-semibold mb-1">Transcribed</h3>
+            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Groq/Whisper turns the audio track into a clean, timestamped transcript.</p>
+          </div>
+
+          <div class="flex flex-col items-start">
+            <span class="w-4 h-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-4"></span>
+            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent)]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="14" rx="2.5"/><line x1="6" y1="9" x2="12" y2="9"/><line x1="6" y1="13" x2="16" y2="13"/>
+              </svg>
+            </span>
+            <h3 class="font-display font-semibold mb-1">Captioned</h3>
+            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">The agent generates styled captions, synced to speech, from a plain-English request.</p>
+          </div>
+
+          <div class="flex flex-col items-start">
+            <span class="w-4 h-4 rounded-full bg-[var(--accent-done)] ring-4 ring-[var(--surface)] mb-4"></span>
+            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent-done)]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="18" rx="2.5"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/>
+              </svg>
+            </span>
+            <h3 class="font-display font-semibold mb-1">Rendered</h3>
+            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Overlays and captions are composited into a final video, ready to export.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Receipts / stats ===================== -->
+  <section class="container-wide py-14 sm:py-20">
+    <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">Real numbers</p>
+    <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">Proof, not promises</h2>
+
+    <!-- Same four before/after figures as the previous designs — now stat cards instead of a
+         terminal log, since the visual language moved from "logs" to "dashboard". -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="card p-5 sm:p-6">
+        <p class="text-sm text-[var(--ink-muted)] mb-3">Weekly availability collation</p>
+        <p class="font-display text-xl sm:text-2xl font-bold">
+          <span class="text-[var(--ink-muted)] font-normal line-through text-base">6h</span>
+          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
+          <span class="text-[var(--accent-done)]">35min</span>
+        </p>
+      </div>
+      <div class="card p-5 sm:p-6">
+        <p class="text-sm text-[var(--ink-muted)] mb-3">HR + control room forms</p>
+        <p class="font-display text-xl sm:text-2xl font-bold">
+          <span class="text-[var(--ink-muted)] font-normal line-through text-base">189</span>
+          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
+          <span class="text-[var(--accent-done)]">82 auto</span>
+        </p>
+      </div>
+      <div class="card p-5 sm:p-6">
+        <p class="text-sm text-[var(--ink-muted)] mb-3">Dossier extraction, cost/mo</p>
+        <p class="font-display text-xl sm:text-2xl font-bold">
+          <span class="text-[var(--ink-muted)] font-normal line-through text-base">$35.00</span>
+          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
+          <span class="text-[var(--accent-done)]">$0.57</span>
+        </p>
+      </div>
+      <div class="card p-5 sm:p-6">
+        <p class="text-sm text-[var(--ink-muted)] mb-3">Electric store sales (2yr)</p>
+        <p class="font-display text-xl sm:text-2xl font-bold">
+          <span class="text-[var(--ink-muted)] font-normal line-through text-base">50k</span>
+          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
+          <span class="text-[var(--accent-done)]">180k PKR</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== About ===================== -->
+  <section class="bg-[var(--surface)] border-y border-[var(--border)]">
+    <div class="container-wide py-14 sm:py-20">
+      <div class="grid sm:grid-cols-[auto_1fr] gap-8 items-start">
+        <!-- Illustrated monogram badge stands in for a headshot, per "no real photos" -->
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-lg text-white shrink-0"
+             style="background: linear-gradient(135deg, var(--accent) 0%, #6ea8f7 100%);">
+          SA
+        </div>
+        <div>
+          <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">About</p>
+          <p class="text-[var(--ink-muted)] text-base leading-relaxed mb-4 max-w-2xl">
+            Currently on placement with a facilities company, replacing WhatsApp groups and paper forms
+            with AI pipelines that non-technical site staff actually use day to day. Before that, built
+            a loan platform in Django; before that, ran a small electronics store while finishing a CS
+            degree &mdash; turns out reading sales data and reading operational data aren't that different.
+            Now doing an MSc in Data Science at Kingston.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">London</span>
+            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">MSc Data Science, Kingston</span>
+            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">LangGraph</span>
+            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">Django</span>
+            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">AWS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Tools & experiments ===================== -->
+  <section class="container-wide py-14 sm:py-20">
+    <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">Tools &amp; experiments</p>
+    <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">Other things I've shipped</h2>
+
+    <div class="grid sm:grid-cols-3 gap-6">
+      <!-- Live: whole card links into the real upload flow -->
+      <a href="{% url 'upload' %}" class="card p-6 hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5 outline-none transition-all block">
+        <div class="flex items-start justify-between mb-4">
+          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="6" r="1.2"/><circle cx="17" cy="9.5" r="1.2"/><circle cx="15" cy="16" r="1.2"/><circle cx="8" cy="16" r="1.2"/><circle cx="6" cy="9.5" r="1.2"/>
+            </svg>
+          </span>
+          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--accent-done)]/10 text-[var(--accent-done)]">Live demo</span>
+        </div>
+        <h3 class="font-display font-semibold mb-1.5">Video Agent</h3>
+        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Caption and overlay a video by chatting with an agent &mdash; what you're using right now.</p>
+      </a>
+
+      <!-- Portfolio-only: same card recipe, muted badge, no link -->
+      <div class="card p-6">
+        <div class="flex items-start justify-between mb-4">
+          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--ink-muted)]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>
+            </svg>
+          </span>
+          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--ink-muted)]/10 text-[var(--ink-muted)]">Portfolio</span>
+        </div>
+        <h3 class="font-display font-semibold mb-1.5">Dossier Scanning Pipeline</h3>
+        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Turns paper application dossiers into structured database rows for $0.57/month instead of $35.</p>
+      </div>
+
+      <div class="card p-6">
+        <div class="flex items-start justify-between mb-4">
+          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--ink-muted)]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </span>
+          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--ink-muted)]/10 text-[var(--ink-muted)]">Portfolio</span>
+        </div>
+        <h3 class="font-display font-semibold mb-1.5">AssistivePro</h3>
+        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Computer-vision pattern detection for accessibility, funded by a government R&amp;D grant.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="border-t border-[var(--border)] bg-[var(--surface)]">
+    <div class="container-wide py-8 flex items-center justify-between text-sm text-[var(--ink-muted)]">
+      <span>&copy; Sheraz Ali</span>
+      <a href="mailto:sherazacgb@gmail.com" class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">sherazacgb@gmail.com</a>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -22,11 +22,11 @@
       <!-- Drop zone: switches between idle state, preview state, and uploading state -->
       <label for="video-input"
              id="drop-zone"
-             class="relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-[var(--border)] rounded-xl cursor-pointer hover:border-amber-500 hover:bg-[var(--bg-surface)] transition-colors group overflow-hidden">
+             class="relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-[var(--border)] rounded-xl cursor-pointer hover:border-[#2f6fd6] hover:bg-[var(--bg-surface)] transition-colors group overflow-hidden">
 
         <!-- Idle prompt (hidden once a file is chosen) -->
         <div id="idle-state">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-[var(--text-6)] group-hover:text-amber-500 mb-3 transition-colors mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-[var(--text-6)] group-hover:text-[#2f6fd6] mb-3 transition-colors mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
           </svg>
           <p class="text-sm text-[var(--text-4)] group-hover:text-[var(--text-2)] transition-colors text-center">
@@ -46,7 +46,7 @@
           </video>
           <!-- Semi-transparent overlay with filename so it's still legible over the thumbnail -->
           <div class="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#5b9bf5] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
             </svg>
             <span id="file-name" class="text-xs text-[var(--text-2)] font-mono truncate"></span>
@@ -69,7 +69,7 @@
         <!-- Uploading spinner (hidden until form is submitted) -->
         <div id="uploading-state" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[var(--bg-page)]/80">
           <!-- Spinner ring -->
-          <svg class="w-10 h-10 text-amber-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 text-[#2f6fd6] animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
             <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
@@ -84,7 +84,7 @@
            sends it to the server and kicks off processing. -->
       <button type="submit"
               id="submit-btn"
-              class="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              class="mt-4 w-full bg-[#2f6fd6] hover:bg-[#2559ad] text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               disabled>
         Continue
       </button>

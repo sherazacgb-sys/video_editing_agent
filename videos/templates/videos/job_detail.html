@@ -13,7 +13,7 @@
       History <span id="history-toggle">&#x25BE;</span>
     </button>
     <button id="new-chat-btn" onclick="startNewChat()"
-            class="text-xs text-[var(--text-6)] hover:text-amber-500 font-mono transition-colors">
+            class="text-xs text-[var(--text-6)] hover:text-[#2f6fd6] font-mono transition-colors">
       New Chat
     </button>
   </div>
@@ -35,7 +35,7 @@
 <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0 styled-scroll"></div>
 <div class="px-3 py-3 border-t border-[var(--border)] flex gap-2">
   <input id="chat-input" type="text" placeholder="Tell the agent what to do…"
-         class="flex-1 bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-amber-500 transition-colors"
+         class="flex-1 bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-[#2f6fd6] transition-colors"
          oninput="updateCharCounter()"
          onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }">
   <!-- Send button doubles as the char-cap indicator: no more "N / 8000" text — instead
@@ -43,8 +43,8 @@
        is approached (updateCharCounter() below). Exact numbers still available via the
        button's title tooltip on hover. -->
   <button id="chat-send" onclick="sendChat()" title="0 / {{ chat_max_message_chars }} characters"
-          class="relative overflow-hidden bg-amber-500 hover:bg-amber-600 text-black font-semibold text-sm px-4 py-2 rounded-lg transition-colors">
-    <span id="chat-send-fill" class="absolute inset-x-0 bottom-0 h-0 bg-amber-800/50 transition-[height,background-color] duration-150 pointer-events-none"></span>
+          class="relative overflow-hidden bg-[#2f6fd6] hover:bg-[#2559ad] text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors">
+    <span id="chat-send-fill" class="absolute inset-x-0 bottom-0 h-0 bg-[#1e3a8a]/50 transition-[height,background-color] duration-150 pointer-events-none"></span>
     <!-- id'd separately so setLoading() can swap just this text, not the whole button
          (btn.textContent would wipe out the #chat-send-fill sibling span above) -->
     <span id="chat-send-label" class="relative z-10">Send</span>
@@ -73,7 +73,7 @@
          Opens the same right-docked modal, bypassing the once-per-job
          localStorage suppression since this is a deliberate click. -->
     <button onclick="openFeedbackModal()"
-            class="flex-shrink-0 text-xs text-[var(--text-5)] hover:text-amber-500 font-mono px-3 py-2 rounded-lg border border-[var(--border-strong)] hover:border-amber-500 transition-colors">
+            class="flex-shrink-0 text-xs text-[var(--text-5)] hover:text-[#2f6fd6] font-mono px-3 py-2 rounded-lg border border-[var(--border-strong)] hover:border-[#2f6fd6] transition-colors">
       Feedback
     </button>
 
@@ -81,7 +81,7 @@
     <div id="export-area" class="flex-shrink-0">
       <div class="flex items-center gap-2">
         <select id="export-resolution"
-                class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-amber-500 transition-colors">
+                class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-[#2f6fd6] transition-colors">
           <option value="original">Original</option>
           <option value="1080p">1080p</option>
           <option value="720p">720p</option>
@@ -89,7 +89,7 @@
         </select>
         <!-- always show Export so the user can re-render after editing captions -->
         <button onclick="runPipeline('render')"
-                class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+                class="bg-[#2f6fd6] hover:bg-[#2559ad] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
           Export
         </button>
       </div>
@@ -117,16 +117,16 @@
            never inside the frame rect the overlay canvas draws into. -->
       <div id="video-controls" class="flex items-center gap-3 mt-3 flex-shrink-0">
         <button id="play-pause-btn" onclick="togglePlayPause()" title="Play/Pause"
-                class="text-[var(--text-3)] hover:text-amber-500 transition-colors text-base flex-shrink-0 w-5 text-center">&#x25B6;</button>
+                class="text-[var(--text-3)] hover:text-[#2f6fd6] transition-colors text-base flex-shrink-0 w-5 text-center">&#x25B6;</button>
         <span id="video-time-current" class="text-xs text-[var(--text-6)] font-mono flex-shrink-0 tabular-nums">0:00</span>
         <!-- Seek track: click/drag anywhere on it to scrub, handled by startSeekDrag() -->
         <div id="video-seek-track" onmousedown="startSeekDrag(event)"
              class="relative flex-1 h-1.5 bg-[var(--bg-page)] rounded-full cursor-pointer">
-          <div id="video-seek-fill" class="absolute inset-y-0 left-0 bg-amber-500 rounded-full pointer-events-none" style="width:0%"></div>
+          <div id="video-seek-fill" class="absolute inset-y-0 left-0 bg-[#2f6fd6] rounded-full pointer-events-none" style="width:0%"></div>
         </div>
         <span id="video-time-duration" class="text-xs text-[var(--text-6)] font-mono flex-shrink-0 tabular-nums">0:00</span>
         <button id="mute-btn" onclick="toggleMute()" title="Mute/Unmute"
-                class="text-[var(--text-3)] hover:text-amber-500 transition-colors text-sm flex-shrink-0 w-5 text-center">&#x1F50A;</button>
+                class="text-[var(--text-3)] hover:text-[#2f6fd6] transition-colors text-sm flex-shrink-0 w-5 text-center">&#x1F50A;</button>
       </div>
       {% else %}
       <!-- Guest video past GUEST_VIDEO_TTL_HOURS (see purge_guest_jobs): the file is gone
@@ -146,7 +146,7 @@
         <!-- Tab bar: switches which of the four bodies below (#tab-skills/#tab-assets/#tab-fonts/#tab-welcome) is shown -->
         <div class="flex items-center gap-4">
           <button onclick="switchTab('skills')" data-tab-btn="skills"
-                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--accent-text)] border-amber-500">
+                  class="text-xs font-mono pb-1 border-b-2 transition-colors text-[var(--accent-text)] border-[#2f6fd6]">
             Skills
           </button>
           <button onclick="switchTab('assets')" data-tab-btn="assets"
@@ -241,14 +241,14 @@
     <div id="feedback-stars" class="flex gap-1">
       {% for n in "12345" %}
       <button type="button" onclick="setFeedbackRating({{ forloop.counter }})"
-              class="text-2xl leading-none text-[var(--text-6)] hover:text-amber-400 transition-colors">&#9733;</button>
+              class="text-2xl leading-none text-[var(--text-6)] hover:text-[#5b9bf5] transition-colors">&#9733;</button>
       {% endfor %}
     </div>
     <textarea id="feedback-comment" rows="4" placeholder="Anything you'd like to add? (optional)"
-              class="w-full bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-amber-500 transition-colors resize-none"></textarea>
+              class="w-full bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-[#2f6fd6] transition-colors resize-none"></textarea>
     <div class="flex gap-2 justify-end mt-auto">
       <button onclick="closeFeedbackModal()" class="text-xs text-[var(--text-6)] hover:text-[var(--text-3)] font-mono px-3 py-2 transition-colors">Maybe later</button>
-      <button onclick="submitFeedback()" class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Submit</button>
+      <button onclick="submitFeedback()" class="bg-[#2f6fd6] hover:bg-[#2559ad] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Submit</button>
     </div>
   </div>
 </div>
@@ -362,7 +362,7 @@
 .chat-prose ol { list-style-type: decimal; }
 .chat-prose li { margin-bottom: 0.2rem; }
 .chat-prose strong { color: var(--text-1); font-weight: 600; }
-.chat-prose code { background: var(--bg-page); color: #f59e0b; font-family: monospace; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
+.chat-prose code { background: var(--bg-page); color: #2f6fd6; font-family: monospace; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 0.25rem; }
 .chat-prose pre  { background: var(--bg-page); padding: 0.6rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.5rem; }
 .chat-prose pre code { background: none; padding: 0; color: var(--text-3); }
 .chat-prose hr   { border-color: var(--border); margin: 0.5rem 0; }
@@ -430,7 +430,7 @@ function appendMessage(role, text, toolsUsed) {
   }
   const bubble = document.createElement('div');
   if (role === 'user') {
-    bubble.className = 'max-w-[85%] bg-amber-500 text-black text-sm font-mono px-3 py-2 rounded-xl rounded-br-sm';
+    bubble.className = 'max-w-[85%] bg-[#2f6fd6] text-white text-sm font-mono px-3 py-2 rounded-xl rounded-br-sm';
     bubble.textContent = text;
   } else {
     bubble.className = 'w-full bg-[var(--bg-hover)] text-[var(--text-2)] text-sm px-3 py-2 rounded-xl rounded-bl-sm chat-prose';
@@ -489,7 +489,7 @@ function applyLockState(sessionDisabled, sessionOverBudget) {
 
 // Water-fill level inside the Send button, mirroring settings.CHAT_MAX_MESSAGE_CHARS —
 // replaces the old "N / cap" text counter so the cap doesn't cost any layout space.
-// Fill rises 0-90% in a neutral dark-amber tone, turns warning red from 90% up to the cap,
+// Fill rises 0-90% in a neutral dark-blue tone, turns warning red from 90% up to the cap,
 // then snaps to full height + solid red once actually over it (sendChat() below blocks the
 // send in that last state rather than round-tripping to the server). Exact numbers always
 // available via the button's title tooltip, updated every keystroke.
@@ -502,18 +502,18 @@ function updateCharCounter() {
   btn.title = `${len} / ${CHAT_MAX_MESSAGE_CHARS} characters`;
   btn.classList.toggle('cursor-not-allowed', over);
   fill.style.height = `${over ? 100 : pct}%`;
-  fill.classList.remove('bg-amber-800/50', 'bg-red-400/60', 'bg-red-600/90');
+  fill.classList.remove('bg-[#1e3a8a]/50', 'bg-red-400/60', 'bg-red-600/90');
   if (over) {
     fill.classList.add('bg-red-600/90');
   } else if (pct >= 90) {
     fill.classList.add('bg-red-400/60');
   } else {
-    fill.classList.add('bg-amber-800/50');
+    fill.classList.add('bg-[#1e3a8a]/50');
   }
 }
 
 // Thin progress bar for this session's cumulative LLM token usage vs
-// settings.CHAT_SESSION_TOKEN_BUDGET — same 90%/100% neutral/amber/red thresholds
+// settings.CHAT_SESSION_TOKEN_BUDGET — same 90%/100% neutral/blue/red thresholds
 // as the char counter above, so both indicators "mean" the same thing at a glance.
 function updateSessionBudgetBar(tokensUsed) {
   const pct = Math.min(100, (tokensUsed / CHAT_SESSION_TOKEN_BUDGET) * 100);
@@ -522,11 +522,11 @@ function updateSessionBudgetBar(tokensUsed) {
   fill.style.width = `${pct}%`;
   // No on-page label (row is a hairline strip) — the percent/numbers live in the tooltip only.
   row.title = `${tokensUsed.toLocaleString()} / ${CHAT_SESSION_TOKEN_BUDGET.toLocaleString()} tokens used this conversation (${Math.round(pct)}%)`;
-  fill.classList.remove('bg-[var(--text-6)]', 'bg-amber-500', 'bg-red-500');
+  fill.classList.remove('bg-[var(--text-6)]', 'bg-[#2f6fd6]', 'bg-red-500');
   if (tokensUsed >= CHAT_SESSION_TOKEN_BUDGET) {
     fill.classList.add('bg-red-500');
   } else if (pct >= 90) {
-    fill.classList.add('bg-amber-500');
+    fill.classList.add('bg-[#2f6fd6]');
   } else {
     fill.classList.add('bg-[var(--text-6)]');
   }
@@ -639,7 +639,7 @@ async function loadSessionList() {
       const row = document.createElement('div');
       row.className = 'px-2 py-1.5 rounded text-xs font-mono truncate transition-colors ' +
         (isActive
-          ? 'bg-amber-500/15 text-[var(--accent-text)] cursor-default'
+          ? 'bg-[#2f6fd6]/15 text-[var(--accent-text)] cursor-default'
           : 'text-[var(--text-5)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-3)] cursor-pointer');
       // Format the timestamp to a short "Jul 2, 15:30" style label.
       const d = new Date(s.created_at);
@@ -832,9 +832,9 @@ function openFeedbackModal() {
 
 function setFeedbackRating(n) {
   feedbackRating = n;
-  // Star index i (0-based) lights up amber if it's within the chosen rating.
+  // Star index i (0-based) lights up blue if it's within the chosen rating.
   document.querySelectorAll('#feedback-stars button').forEach((btn, i) => {
-    btn.classList.toggle('text-amber-400', i < n);
+    btn.classList.toggle('text-[#5b9bf5]', i < n);
     btn.classList.toggle('text-[var(--text-6)]', i >= n);
   });
 }
@@ -892,15 +892,15 @@ function updateExportArea({ status, stage, progress }) {
       document.querySelectorAll('.export-progress-label').forEach(el => { el.textContent = `Exporting… ${pct}%`; });
       return;
     }
-    // The button becomes the bar: an amber fill growing left→right across a
+    // The button becomes the bar: a blue fill growing left→right across a
     // button-shaped track. Two stacked copies of the label — a muted one on the
     // track and a black one clipped inside the fill — keep the text readable on
     // both sides of the fill edge. duration-[2000ms] matches the 2s poll cadence
     // so the bar glides continuously between updates instead of stepping.
     area.innerHTML = `<div class="relative w-44 h-9 rounded-lg overflow-hidden bg-[var(--bg-hover)] border border-[var(--border-strong)]">
       <span class="export-progress-label absolute inset-0 flex items-center justify-center text-xs font-mono font-semibold text-[var(--text-4)]">Exporting… ${pct}%</span>
-      <div id="export-progress-fill" class="absolute inset-y-0 left-0 overflow-hidden bg-amber-500 transition-[width] duration-[2000ms] ease-linear" style="width:${pct}%">
-        <span class="export-progress-label absolute inset-y-0 left-0 w-44 flex items-center justify-center text-xs font-mono font-semibold text-black">Exporting… ${pct}%</span>
+      <div id="export-progress-fill" class="absolute inset-y-0 left-0 overflow-hidden bg-[#2f6fd6] transition-[width] duration-[2000ms] ease-linear" style="width:${pct}%">
+        <span class="export-progress-label absolute inset-y-0 left-0 w-44 flex items-center justify-center text-xs font-mono font-semibold text-white">Exporting… ${pct}%</span>
       </div>
     </div>`;
     return;
@@ -908,14 +908,14 @@ function updateExportArea({ status, stage, progress }) {
 
   area.innerHTML = `<div class="flex items-center gap-2">
     <select id="export-resolution"
-      class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-amber-500 transition-colors">
+      class="bg-[var(--bg-hover)] text-[var(--text-3)] text-xs font-mono px-2 py-2 rounded-lg border border-[var(--border-strong)] outline-none focus:border-[#2f6fd6] transition-colors">
       <option value="original">Original</option>
       <option value="1080p">1080p</option>
       <option value="720p">720p</option>
       <option value="480p">480p</option>
     </select>
     <button onclick="runPipeline('render')"
-      class="bg-amber-500 hover:bg-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Export</button>
+      class="bg-[#2f6fd6] hover:bg-[#2559ad] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Export</button>
   </div>`;
 }
 
@@ -932,7 +932,7 @@ function switchTab(name) {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== name);
     const btn = document.querySelector(`[data-tab-btn="${t}"]`);
     btn.classList.toggle('text-[var(--accent-text)]', t === name);
-    btn.classList.toggle('border-amber-500', t === name);
+    btn.classList.toggle('border-[#2f6fd6]', t === name);
     btn.classList.toggle('text-[var(--text-5)]', t !== name);
     btn.classList.toggle('border-transparent', t !== name);
   });
@@ -1495,7 +1495,7 @@ function updateTimeline(assets) {
 
       const lbl = document.createElement('div');
       lbl.className = 'h-7 flex flex-col items-end justify-center text-xs text-[var(--text-6)] font-mono leading-tight';
-      lbl.innerHTML = `<span>${label}</span><span class="text-amber-500/70 text-[10px]">${layerAssets.length}</span>`;
+      lbl.innerHTML = `<span>${label}</span><span class="text-[#2f6fd6]/70 text-[10px]">${layerAssets.length}</span>`;
       labelCol.appendChild(lbl);
 
       const track = document.createElement('div');
@@ -1521,7 +1521,7 @@ function updateTimeline(assets) {
     // Single playhead in trackCol — spans all tracks and inter-track gaps as one line
     const playhead = document.createElement('div');
     playhead.className = 'timeline-playhead';
-    playhead.style.cssText = 'position:absolute;top:0;bottom:0;width:1.5px;background:#f59e0b;z-index:10;pointer-events:none';
+    playhead.style.cssText = 'position:absolute;top:0;bottom:0;width:1.5px;background:#2f6fd6;z-index:10;pointer-events:none';
     trackCol.appendChild(playhead);
 
     // trackCol is rebuilt on every draw() call, so the tooltip is (re)attached fresh each time.
@@ -1541,7 +1541,7 @@ function updateTimeline(assets) {
     rulerArea.className = 'relative flex-1';
     const rulerTick = document.createElement('div');
     rulerTick.className = 'timeline-playhead';
-    rulerTick.style.cssText = 'position:absolute;top:0;width:1.5px;height:5px;background:#f59e0b;pointer-events:none';
+    rulerTick.style.cssText = 'position:absolute;top:0;width:1.5px;height:5px;background:#2f6fd6;pointer-events:none';
     rulerArea.appendChild(rulerTick);
     const rulerLabels = document.createElement('div');
     rulerLabels.className = 'flex justify-between text-xs text-[var(--text-7)] font-mono pt-1.5';

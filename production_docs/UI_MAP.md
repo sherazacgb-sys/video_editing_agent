@@ -5,7 +5,39 @@ see the rule in `CLAUDE.md` ("UI map"). This file is read at runtime by the
 `read_ui_map` chat-agent tool (`pipeline/tools.py`), so keep it accurate and
 free of internal jargon the agent shouldn't repeat verbatim to a user.
 
-## Layout shared by every page (`videos/templates/videos/base.html`)
+## Public homepage (`/`, `videos/templates/videos/landing.html`) — standalone, not part of base.html's layout
+
+The site's actual root now — a public SherazLabs marketing page, not the video
+tool itself, and not gated by sign-in or guest identity. Anyone can view it.
+Bright SaaS-style layout (full-width sections, white/light-gray alternating
+backgrounds, card grids) — the earlier dark-terminal design was replaced
+after feedback that it looked too plain/text-only.
+
+- **Nav** (top, full width): "Sheraz Labs" wordmark on the left; GitHub,
+  LinkedIn, and email icon links plus a "Try it →" button on the right (goes
+  to `/upload/`).
+- **Hero**: product-led two-column layout. Left: eyebrow, headline, subhead,
+  a "Try the Video Agent →" button (`/upload/`) and a "See how it works ↓"
+  anchor link down to the pipeline section. Right: a custom illustration (no
+  real screenshots) — a mocked video frame with a play icon, a
+  chat-generated caption bar, and an agent "instruction" bubble, sitting
+  above a timeline-ruler graphic with a timecode label. Purely decorative,
+  nothing clickable.
+- **Pipeline ("How it works")**: three steps — Transcribed / Captioned /
+  Rendered — laid out along a horizontal timeline-ruler graphic (the same
+  motif as the hero), each with a small icon and one-line description.
+  Informational only.
+- **Receipts / stats**: four stat cards with the real before/after numbers
+  from past project work (e.g. "189 → 82 auto"), purely informational.
+- **About**: a monogram badge ("SA", stand-in for a photo) plus a bio
+  paragraph and a row of quick-fact pills (location, education, core stack).
+- **Tools & experiments**: a grid of three cards. "Video Agent" is a live
+  link to the upload page (`/upload/`), where the guest/sign-in gate applies
+  as usual, tagged "Live demo"; "Dossier Scanning Pipeline" and
+  "AssistivePro" are portfolio-only (no link, tagged "Portfolio").
+- **Footer**: copyright line and an email link.
+
+## Layout shared by every page inside the app (`videos/templates/videos/base.html`)
 
 - **Left sidebar** (`<aside>`, far left edge of the screen). Its contents
   depend on the page — see below, it is NOT always the job list.
@@ -43,8 +75,9 @@ panel**:
 ## Login page (`user_accounts/templates/registration/login.html`) — standalone, not part of base.html's layout
 
 Shown to anyone not yet identified (no account session, no guest cookie) who
-tries to reach any page — e.g. a brand-new visitor hitting the site for the
-first time lands here before the upload page, not after it.
+tries to reach the upload page or anything past it — a brand-new visitor can
+freely browse the public homepage (`/`) first, and only hits this gate once
+they click into "Video Agent" (`/upload/`) or a job page.
 
 - Guest-only for now — the username/password sign-in form is commented out in
   the template (not deleted; there's no working sign-up flow yet, so there'd

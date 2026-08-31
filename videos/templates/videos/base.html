@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Video Editing Agent</title>
+
+  <link rel="icon" type="image/png" href="{% static 'images/sherazlabs_favicon.png' %}">
   <script>
     // Applies the saved per-browser theme before first paint (blocking, synchronous
     // script in <head>) so the page never flashes dark-then-light or vice versa.
@@ -22,7 +25,7 @@
             base: '#121212',
             surface: '#1e1e1e',
             border: '#2a2a2a',
-            amber: { DEFAULT: '#f59e0b', hover: '#d97706' },
+            brand: { DEFAULT: '#2f6fd6', hover: '#2559ad' },
           }
         }
       }
@@ -43,7 +46,7 @@
       --danger-bg: rgba(127,29,29,0.4);  --danger-text: #f87171;
       --danger-bg-soft: rgba(239,68,68,0.1); --danger-border: rgba(239,68,68,0.3);
       --warning-bg: rgba(120,53,15,0.4);
-      --accent-text: #fbbf24;
+      --accent-text: #5b9bf5;
     }
     :root[data-theme="light"] {
       --bg-page: #f7f7f5;      --bg-surface: #ffffff;   --bg-raised: #ffffff;
@@ -55,7 +58,7 @@
       --danger-bg: #fee2e2;   --danger-text: #b91c1c;
       --danger-bg-soft: #fee2e2; --danger-border: #fca5a5;
       --warning-bg: #fef3c7;
-      --accent-text: #b45309;
+      --accent-text: #1d4ed8;
     }
 
     /* Thin custom scrollbar, shared by every scrollable region (sidebar list,
@@ -78,7 +81,7 @@
       transition: background 0.2s ease;
     }
     .styled-scroll::-webkit-scrollbar-thumb:hover {
-      background: #f59e0b; /* amber on hover to match brand accent */
+      background: #2f6fd6; /* blue on hover to match brand accent */
     }
 
     /* Fade mask at top and bottom to hint at more items without a hard edge;
@@ -106,7 +109,10 @@
   <!-- Sidebar -->
   <aside class="{% block aside_class %}w-64{% endblock %} flex-shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col">
     <div class="p-4 border-b border-[var(--border)]">
-      <a href="{% url 'upload' %}" class="text-[var(--accent-text)] font-semibold text-lg tracking-tight">Video Editing Agent</a>
+      <a href="{% url 'upload' %}" class="flex items-center gap-2 text-[var(--accent-text)] font-semibold text-lg tracking-tight">
+        <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-6 h-6 rounded flex-shrink-0">
+        Video Editing Agent
+      </a>
     </div>
 
     {% block sidebar_body %}
@@ -189,8 +195,8 @@
         <button id="profile-btn" onclick="toggleProfileMenu(event)"
                 class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors text-left">
           <!-- Avatar circle showing first letter of username -->
-          <div class="w-8 h-8 rounded-full bg-amber-500 flex-shrink-0 flex items-center justify-center
-                      text-black text-sm font-bold uppercase">
+          <div class="w-8 h-8 rounded-full bg-[#2f6fd6] flex-shrink-0 flex items-center justify-center
+                      text-white text-sm font-bold uppercase">
             {{ user.username|slice:":1" }}
           </div>
           <span class="text-sm text-[var(--text-2)] truncate flex-1 font-mono">{{ user.username }}</span>
@@ -220,8 +226,8 @@
             {% if user_plan == 'pro' %}
               <!-- Pro badge -->
               <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1 bg-amber-500/20 text-[var(--accent-text)]
-                             text-xs font-mono font-semibold px-2 py-0.5 rounded-full border border-amber-500/30">
+                <span class="inline-flex items-center gap-1 bg-[#2f6fd6]/20 text-[var(--accent-text)]
+                             text-xs font-mono font-semibold px-2 py-0.5 rounded-full border border-[#2f6fd6]/30">
                   ✦ Pro
                 </span>
               </div>
@@ -363,7 +369,7 @@
         Reject
       </button>
       <button onclick="setCookieConsent('accepted')"
-              class="text-sm font-mono px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-semibold transition-colors">
+              class="text-sm font-mono px-3 py-1.5 rounded-lg bg-[#2f6fd6] hover:bg-[#2559ad] text-white font-semibold transition-colors">
         Accept
       </button>
     </div>

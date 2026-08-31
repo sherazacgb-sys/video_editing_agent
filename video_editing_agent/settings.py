@@ -187,7 +187,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Redirect to upload page after login/logout (the app's natural home screen)
-LOGIN_REDIRECT_URL = '/'
+# '/' is now the public SherazLabs homepage (Version 2), not the app — send a
+# signed-in user straight into the app instead of dropping them back on marketing copy.
+LOGIN_REDIRECT_URL = '/upload/'
 LOGOUT_REDIRECT_URL = '/'
 
 # Global emergency off-switch for the AI chat feature (e.g. cost spike, abuse wave).
