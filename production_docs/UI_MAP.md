@@ -7,35 +7,54 @@ free of internal jargon the agent shouldn't repeat verbatim to a user.
 
 ## Public homepage (`/`, `videos/templates/videos/landing.html`) — standalone, not part of base.html's layout
 
-The site's actual root now — a public SherazLabs marketing page, not the video
+The site's actual root — a public SherazLabs marketing page, not the video
 tool itself, and not gated by sign-in or guest identity. Anyone can view it.
-Bright SaaS-style layout (full-width sections, white/light-gray alternating
-backgrounds, card grids) — the earlier dark-terminal design was replaced
-after feedback that it looked too plain/text-only.
+Bright, full-width layout (white/light-gray alternating bands, card grids)
+with a blue accent for anything clickable, yellow reserved for the
+timeline/playhead graphics, and teal for "live"/"rendered" badges.
 
-- **Nav** (top, full width): "Sheraz Labs" wordmark on the left; GitHub,
-  LinkedIn, and email icon links plus a "Try it →" button on the right (goes
-  to `/upload/`).
-- **Hero**: product-led two-column layout. Left: eyebrow, headline, subhead,
-  a "Try the Video Agent →" button (`/upload/`) and a "See how it works ↓"
-  anchor link down to the pipeline section. Right: a custom illustration (no
-  real screenshots) — a mocked video frame with a play icon, a
-  chat-generated caption bar, and an agent "instruction" bubble, sitting
-  above a timeline-ruler graphic with a timecode label. Purely decorative,
-  nothing clickable.
-- **Pipeline ("How it works")**: three steps — Transcribed / Captioned /
-  Rendered — laid out along a horizontal timeline-ruler graphic (the same
-  motif as the hero), each with a small icon and one-line description.
-  Informational only.
-- **Receipts / stats**: four stat cards with the real before/after numbers
-  from past project work (e.g. "189 → 82 auto"), purely informational.
-- **About**: a monogram badge ("SA", stand-in for a photo) plus a bio
-  paragraph and a row of quick-fact pills (location, education, core stack).
-- **Tools & experiments**: a grid of three cards. "Video Agent" is a live
-  link to the upload page (`/upload/`), where the guest/sign-in gate applies
-  as usual, tagged "Live demo"; "Dossier Scanning Pipeline" and
-  "AssistivePro" are portfolio-only (no link, tagged "Portfolio").
-- **Footer**: copyright line and an email link.
+- **Sticky top bar** (stays visible while scrolling, two rows):
+  - Row 1: "Sheraz Labs" wordmark on the left (scrolls back to the top);
+    section links in the middle on wide screens — Video Agent, What it does,
+    How it works, Receipts, The lab, About; GitHub and LinkedIn icon links
+    plus a "Try Video Agent" button on the right (goes to `/upload/`).
+  - Row 2: a thin **scrubber bar** styled like a video timeline. It fills in
+    yellow as the visitor scrolls, and carries one small round tick per
+    section — hovering or tab-focusing a tick shows that section's name, and
+    clicking it jumps there. The mono numbers at its right end (e.g. "01:12")
+    are a scroll-position readout, not a real video duration.
+- **Hero** (top of the page): two columns. Left: the "AI tools that do the
+  boring half of the job" headline, a short intro, a "Try Video Agent" button
+  (`/upload/`), a "See the receipts" link down the page, and a plain list of
+  the tech it runs on. Right: a custom illustration (never a real screenshot)
+  — a mocked editor window with a job rail, a video frame carrying a caption
+  and a "LOGO.png" overlay, a small chat exchange, and a layered timeline
+  underneath. Decorative; nothing in the illustration is clickable.
+- **Featured tool — Video Agent**: two columns. Left: description, three
+  checkmarked points, and an "Open Video Agent" button (`/upload/`). Right: a
+  mocked chat transcript of one editing session. Illustration only.
+- **What it does**: a grid of six cards (edit by chatting, captions, image
+  and PDF overlays, one-click Skills, no account required, it knows its own
+  interface). Informational — no links.
+- **How it works**: three cards — Transcribed / Captioned / Rendered — strung
+  along a horizontal timeline-ruler graphic, each with a small graphic
+  (waveform, caption blocks, a full progress bar). Informational only.
+- **Receipts**: four stat cards with the real before/after numbers from past
+  project work (e.g. "189 → 82 auto"), purely informational.
+- **The lab**: a grid of three cards. "Video Agent" is a live link to the
+  upload page (`/upload/`), where the guest/sign-in gate applies as usual,
+  tagged "Live"; "Dossier Scanning Pipeline" and "AssistivePro" are
+  portfolio-only (no link, tagged "Portfolio").
+- **About**: a monogram badge ("SA", stand-in for a photo) with name and
+  role, a row of quick-fact pills (location, education, core stack), and two
+  bio paragraphs.
+- **Closing call-to-action**: a dark band near the bottom with a "Got
+  something repetitive and manual?" heading, a yellow "Try Video Agent"
+  button (`/upload/`) and an "Email me" button.
+- **Footer**: four columns — the wordmark and a one-line description; a
+  "Tools" list (Video Agent → `/upload/`, plus two links back to the lab
+  section); a "This site" list of links back to sections of this page; and a
+  "Connect" list (GitHub, LinkedIn, email). Below them, a copyright line.
 
 ## Layout shared by every page inside the app (`videos/templates/videos/base.html`)
 

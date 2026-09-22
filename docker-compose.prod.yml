@@ -41,6 +41,16 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    # nginx loads the TLS cert into memory once at startup and never re-reads it, so a
+    # cert renewed by the `certbot` service below would sit unused on the shared volume
+    # until something restarted nginx — the old cert stays valid for ~30 more days, then
+    # the site starts serving an expired cert with no warning. This wakes every 6h to
+    # `nginx -s reload` (graceful: workers finish in-flight requests, no dropped
+    # connections, and it's cheap when nothing changed) so a renewal is always picked up
+    # well inside that window. The reload loop is backgrounded and nginx itself runs in
+    # the foreground, so the container's lifecycle still tracks nginx as PID 1's child.
+    command: >-
+      sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
     ports:
       - "80:80"
       - "443:443"

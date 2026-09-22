@@ -4,30 +4,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sheraz Labs</title>
+  <title>Sheraz Labs — AI tools that do the boring half of the job</title>
+  <meta name="description" content="SherazLabs builds small, sharp AI tools. Start with Video Agent: upload a video, tell an agent what you want, get it back captioned and rendered.">
 
-  <!-- Same favicon as the rest of the app -->
   <link rel="icon" type="image/png" href="{% static 'images/sherazlabs_favicon.png' %}">
+
+  <script>
+    // Marks the document as JS-capable before first paint. Every scroll-reveal rule is
+    // scoped under `.js`, so a visitor without JS gets the fully visible page instead of
+    // a blank one waiting for an IntersectionObserver that will never run.
+    document.documentElement.classList.add('js');
+  </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Space Grotesk for headline/display type (technical but has personality, not the default
-       Inter-everywhere SaaS look), Inter for body prose, JetBrains Mono repurposed as a
-       "timecode" utility face (00:00:12:04-style labels) instead of a terminal prompt — this
-       page dropped the dark terminal direction entirely, so mono now only ever labels time/data. -->
+  <!-- Bricolage Grotesque carries the page's personality in headlines only (its odd
+       terminals and tight optical sizing stop the page reading as default-Inter SaaS);
+       Inter stays for body prose where plain legibility matters more than character;
+       JetBrains Mono is the utility face for timecodes and data labels, which is the
+       only place mono earns its keep on a video-editing product. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <script>
-    // Registers the three web fonts above as Tailwind utilities so the markup can stay declarative.
+    // Registers the three faces as Tailwind utilities so the markup stays declarative
+    // rather than repeating font-family declarations in inline styles.
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            display: ['"Space Grotesk"', 'sans-serif'],
-            body: ['Inter', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+            display: ['"Bricolage Grotesque"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
+            body: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
           },
         },
       },
@@ -35,313 +44,923 @@
   </script>
 
   <style>
-    /* Single bright palette — this page is a dedicated light marketing page now, not a dark
-       theme with a light override, so there's no data-theme branching to maintain here. */
+    /* ---------------------------------------------------------------------------
+       Palette. Bright/light per the confirmed direction — no dark-theme branching to
+       maintain on this page. Three accents, each with exactly one job, so the colour
+       never scatters: blue = anything interactive, yellow = the timeline/playhead
+       system (the page's signature) and nothing else, teal = live/complete states.
+       The yellow is caption yellow and the blue is a render-bar blue — both borrowed
+       from actual video tooling rather than picked as generic "SaaS accent" hues.
+       --------------------------------------------------------------------------- */
     :root {
-      --bg: #f7f8fa; --surface: #ffffff; --border: #e7e9ee;
-      --ink: #14171f; --ink-muted: #5b6270;
-      --accent: #2f6fd6;       /* blue "playhead" accent — CTAs + the timeline-ruler motif, matches the app's own CTA blue */
-      --accent-done: #14b8a6;  /* teal — reserved for "rendered/complete" states: stats, live badges */
-      --shadow-card: 0 12px 30px -18px rgba(20, 23, 31, 0.16);
+      --ink: #0e1120;          /* near-black navy for type — softer than pure black on a light ground */
+      --ink-2: #5a6274;        /* muted body/secondary text */
+      --paper: #f4f6fb;        /* cool page ground */
+      --surface: #ffffff;      /* cards and alternating full-bleed bands */
+      --line: #e2e6f1;         /* hairline borders */
+      --accent: #2b34e8;       /* interactive: CTAs, links, active states */
+      --accent-ink: #1c23bd;   /* hover/pressed shade of the above */
+      --signal: #ffc53d;       /* playhead + scrubber ONLY — the signature colour */
+      --done: #00b894;         /* "live" / "rendered" badges only */
+      --shadow-sm: 0 2px 8px -3px rgba(14, 17, 32, .12);
+      --shadow-md: 0 18px 40px -24px rgba(14, 17, 32, .28);
+      --shadow-lg: 0 40px 80px -40px rgba(14, 17, 32, .45);
     }
 
-    /* Shared shell for every section: caps line length on wide monitors without the "narrow
-       column floating in dead space" feel — the user's explicit complaint about the last pass. */
-    .container-wide { max-width: 1440px; margin-left: auto; margin-right: auto; padding-left: 1.25rem; padding-right: 1.25rem; }
-    @media (min-width: 640px) { .container-wide { padding-left: 2rem; padding-right: 2rem; } }
+    /* Anchor jumps land below the sticky header+scrubber stack instead of underneath it. */
+    html { scroll-behavior: smooth; scroll-padding-top: 108px; }
 
-    /* One reusable card recipe instead of repeating border/shadow utilities everywhere, which
-       also sidesteps the class-vs-element CSS-specificity trap noted in CLAUDE.md. */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; box-shadow: var(--shadow-card); }
+    /* Wide shell for every section. Explicit max-width rather than a narrow centred
+       column, per the standing "take the whole space there is available" direction. */
+    .shell { max-width: 1440px; margin-inline: auto; padding-inline: 1.25rem; }
+    @media (min-width: 640px) { .shell { padding-inline: 2rem; } }
 
-    /* Timeline-ruler tick texture — the page's signature motif (echoed in the hero and the
-       pipeline section), a literal video-editor time ruler rather than a generic divider line. */
-    .ruler { background-image: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 14px); }
+    /* One card recipe. Defined once as a class so no element-vs-class specificity
+       fight can silently cancel a border or radius later in the file. */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 1.15rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-lift { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+    .card-lift:hover, .card-lift:focus-visible { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: #cfd6ea; }
 
-    /* Hero's one entrance moment: each direct child fades/slides up in sequence on load. The
-       only motion on the page besides card hover — everything else stays still. */
-    @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    .hero-in > * { animation: fade-up .6s ease both; }
-    .hero-in > *:nth-child(2) { animation-delay: .08s; }
-    .hero-in > *:nth-child(3) { animation-delay: .16s; }
-    .hero-in > *:nth-child(4) { animation-delay: .24s; }
+    /* Section label: small mono eyebrow + a hairline rule that runs to the edge of the
+       column, so each section opens like a labelled track rather than a floating caption. */
+    .eyebrow { display: flex; align-items: center; gap: .75rem; font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    /* --- Signature: the sticky sub-nav is a video scrubber -----------------------
+       Not decoration — it is the page's real scroll-progress indicator and its section
+       navigation at once. Ticks sit at each section's true document offset, so clicking
+       a tick scrubs to that part of the page the same way a playhead would. */
+    .scrub-track { position: relative; height: 3px; background: var(--line); border-radius: 999px; }
+    .scrub-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--signal); border-radius: 999px; }
+    .scrub-head {
+      position: absolute; top: 50%; left: 0; width: 11px; height: 11px; border-radius: 999px;
+      background: var(--signal); border: 2px solid var(--surface);
+      box-shadow: 0 0 0 1px rgba(14, 17, 32, .12);
+      transform: translate(-50%, -50%); pointer-events: none;
+    }
+    /* Tick = one section marker. The hit area is deliberately taller than the visible
+       mark so it stays clickable on a 3px-tall track. */
+    .scrub-tick {
+      position: absolute; top: 50%; transform: translate(-50%, -50%);
+      height: 18px; width: 18px; display: grid; place-items: center;
+      background: none; border: 0; padding: 0; cursor: pointer;
+    }
+    .scrub-tick::before {
+      content: ""; width: 5px; height: 5px; border-radius: 999px;
+      background: #c3cadd; transition: background .18s ease, transform .18s ease;
+    }
+    .scrub-tick:hover::before, .scrub-tick:focus-visible::before { background: var(--accent); transform: scale(1.5); }
+    .scrub-tick[aria-current="true"]::before { background: var(--ink); transform: scale(1.5); }
+    /* Section name shown above its tick on hover/focus — the tick's label, not a tooltip
+       for decoration, so keyboard users get it too. */
+    .scrub-tick span {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+      background: var(--ink); color: #fff; padding: 3px 7px; border-radius: 5px;
+      opacity: 0; transition: opacity .18s ease; pointer-events: none;
+    }
+    .scrub-tick:hover span, .scrub-tick:focus-visible span { opacity: 1; }
+
+    /* Timeline-ruler texture: a literal editor time ruler, reused as the thread between
+       the pipeline's three stages so the divider carries meaning instead of decorating. */
+    .ruler { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 13px); }
+
+    /* Hero + CTA ground. A soft off-axis wash rather than a centred symmetric gradient,
+       so the hero doesn't read as the stock "radial glow behind the headline" treatment. */
+    .hero-wash {
+      background:
+        radial-gradient(1100px 460px at 88% -8%, rgba(43, 52, 232, .10), transparent 62%),
+        radial-gradient(760px 420px at 4% 8%, rgba(255, 197, 61, .16), transparent 60%),
+        var(--paper);
+    }
+
+    /* --- Scroll reveal ---------------------------------------------------------
+       Scoped under `.js` so the no-JS render is complete and visible (see the head
+       script). One quiet entrance per section; no per-element stagger beyond the hero. */
+    .js .reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s ease, transform .55s ease; }
+    .js .reveal.is-in { opacity: 1; transform: none; }
+
+    /* The hero's single orchestrated moment — children enter in reading order. */
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .js .hero-seq > * { animation: rise .65s cubic-bezier(.2, .7, .3, 1) both; }
+    .js .hero-seq > *:nth-child(2) { animation-delay: .07s; }
+    .js .hero-seq > *:nth-child(3) { animation-delay: .14s; }
+    .js .hero-seq > *:nth-child(4) { animation-delay: .21s; }
+    .js .hero-seq > *:nth-child(5) { animation-delay: .28s; }
+
+    /* Anyone who has asked the OS for less motion gets the finished page immediately:
+       no entrance animation, no smooth-scroll hijack on the scrubber's jumps. */
     @media (prefers-reduced-motion: reduce) {
-      .hero-in > * { animation: none; }
+      html { scroll-behavior: auto; }
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+      .js .hero-seq > * { animation: none; }
+      .card-lift { transition: none; }
+    }
+
+    /* Consistent, visible keyboard focus everywhere — the browser default ring is
+       nearly invisible against the blue CTAs. */
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 6px;
     }
   </style>
 </head>
-<body class="bg-[var(--bg)] text-[var(--ink)] min-h-screen font-body antialiased">
+<body class="bg-[var(--paper)] text-[var(--ink)] font-body antialiased">
 
-  <!-- ===================== Nav ===================== -->
-  <header class="border-b border-[var(--border)] bg-[var(--surface)]">
-    <div class="container-wide flex items-center justify-between py-4">
-      <a href="/" class="flex items-center gap-2.5">
-        <!-- Same mark used as the app's favicon/sidebar logo elsewhere, so the brand is consistent across the site -->
+  <!-- =========================================================================
+       Sticky header + scrubber. Both live in one sticky wrapper so the scrub track
+       always sits flush under the nav rather than drifting during scroll.
+       ========================================================================= -->
+  <div class="sticky top-0 z-50 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--line)]">
+    <header class="shell flex items-center justify-between gap-6 py-3.5">
+      <a href="#top" class="flex items-center gap-2.5 shrink-0">
         <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-7 h-7 rounded-md">
-        <span class="font-display font-bold text-lg tracking-tight">Sheraz Labs</span>
+        <span class="font-display font-bold text-[17px] tracking-tight">Sheraz Labs</span>
       </a>
-      <div class="flex items-center gap-5">
-        <!-- Contact icons: same three links as before, just recolored for a light page -->
-        <nav class="hidden sm:flex items-center gap-4 text-[var(--ink-muted)]">
-          <a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" aria-label="GitHub"
-             class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1 .11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
+
+      <!-- Section links, hidden on small screens where the scrub ticks below do the same job -->
+      <nav class="hidden lg:flex items-center gap-7 text-[13.5px] font-medium text-[var(--ink-2)]">
+        <a href="#video-agent" class="hover:text-[var(--ink)] transition-colors">Video Agent</a>
+        <a href="#capabilities" class="hover:text-[var(--ink)] transition-colors">What it does</a>
+        <a href="#pipeline" class="hover:text-[var(--ink)] transition-colors">How it works</a>
+        <a href="#receipts" class="hover:text-[var(--ink)] transition-colors">Receipts</a>
+        <a href="#lab" class="hover:text-[var(--ink)] transition-colors">The lab</a>
+        <a href="#about" class="hover:text-[var(--ink)] transition-colors">About</a>
+      </nav>
+
+      <div class="flex items-center gap-4 shrink-0">
+        <nav class="hidden sm:flex items-center gap-3.5 text-[var(--ink-2)]" aria-label="Elsewhere">
+          <a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" aria-label="GitHub" class="hover:text-[var(--accent)] transition-colors">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1 .11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
           </a>
-          <a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" aria-label="LinkedIn"
-             class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.11 20.45H3.56V9h3.55v11.45z"/></svg>
-          </a>
-          <a href="mailto:sherazacgb@gmail.com" aria-label="Email" class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 5.5A2.5 2.5 0 0 1 4.5 3h15A2.5 2.5 0 0 1 22 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 18.5v-13zm2.2.3 7.4 6.16a.6.6 0 0 0 .8 0l7.4-6.16A.5.5 0 0 0 19.5 5h-15a.5.5 0 0 0-.3.8z"/></svg>
+          <a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" aria-label="LinkedIn" class="hover:text-[var(--accent)] transition-colors">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.11 20.45H3.56V9h3.55v11.45z"/></svg>
           </a>
         </nav>
-        <!-- Primary CTA, repeated in the header so it's reachable without scrolling to the hero -->
         <a href="{% url 'upload' %}"
-           class="inline-flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[#2559ad] focus-visible:bg-[#2559ad] text-white text-sm font-semibold px-4 py-2 rounded-full transition-colors outline-none">
-          Try it &rarr;
+           class="inline-flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-ink)] text-white text-[13.5px] font-semibold px-4 py-2 rounded-lg transition-colors">
+          Try Video Agent
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
         </a>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <!-- ===================== Hero ===================== -->
-  <section class="container-wide py-14 sm:py-20">
-    <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-      <!-- Left: product pitch. Product-led (not bio-led) since the CTA drops straight into the
-           tool itself — the personal/portfolio framing lives further down the page instead. -->
-      <div class="hero-in">
-        <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-4">AI video editing agent</p>
-        <h1 class="font-display text-4xl sm:text-5xl font-bold leading-[1.1] mb-5">
-          Caption and edit your video by chatting &mdash; not clicking through timelines.
-        </h1>
-        <p class="text-[var(--ink-muted)] text-base sm:text-lg leading-relaxed mb-8 max-w-lg">
-          Upload a video, tell the agent what you want, and it transcribes, captions, and
-          renders it for you. Built by an applied AI engineer who ships automation for real
-          operations teams &mdash; the numbers below are from that work, not a demo.
-        </p>
-        <div class="flex flex-wrap items-center gap-4">
-          <a href="{% url 'upload' %}"
-             class="inline-flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[#2559ad] focus-visible:bg-[#2559ad] text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors outline-none">
-            Try the Video Agent &rarr;
-          </a>
-          <a href="#pipeline" class="text-sm font-semibold text-[var(--ink-muted)] hover:text-[var(--ink)] focus-visible:text-[var(--ink)] transition-colors">
-            See how it works &darr;
-          </a>
+    <!-- The scrubber. Ticks are injected from the real offsets of every [data-chapter]
+         section at the bottom of the file, so the marks can never drift out of sync
+         with the content the way a hand-written list of positions would. -->
+    <div class="shell pb-2.5">
+      <div class="flex items-center gap-3">
+        <div id="scrub" class="scrub-track flex-1" role="navigation" aria-label="Jump to a section">
+          <div class="scrub-fill" id="scrub-fill"></div>
+          <div class="scrub-head" id="scrub-head"></div>
         </div>
-      </div>
-
-      <!-- Right: custom illustration (no screenshots) — a mocked video frame with a
-           chat-generated caption bar and the agent's instruction bubble, standing in for the
-           actual product interaction: you ask for something, the video changes. -->
-      <div class="hero-in">
-        <div class="relative aspect-video w-full rounded-2xl overflow-hidden shadow-[var(--shadow-card)]"
-             style="background: linear-gradient(135deg, #14171f 0%, #2b3040 100%);">
-          <!-- Centered play control, standing in for the video itself -->
-          <div class="absolute inset-0 flex items-center justify-center">
-            <span class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#14171f"><path d="M8 5v14l11-7z"/></svg>
-            </span>
-          </div>
-          <!-- Generated-caption mock: two text-line bars over a translucent panel -->
-          <div class="absolute left-4 right-4 sm:right-auto sm:w-2/3 bottom-4 bg-black/55 backdrop-blur-sm rounded-lg px-3 py-2.5 space-y-1.5">
-            <div class="h-2 w-3/4 bg-white/75 rounded-full"></div>
-            <div class="h-2 w-1/2 bg-white/50 rounded-full"></div>
-          </div>
-          <!-- Agent "instruction" bubble that implies the caption above was just requested -->
-          <div class="absolute top-4 right-4 bg-white rounded-xl rounded-tr-sm shadow-lg px-3 py-2 max-w-[170px]">
-            <p class="font-mono text-[10px] leading-snug text-[var(--ink-muted)]">&ldquo;add bold captions, teal accent&rdquo;</p>
-          </div>
-        </div>
-
-        <!-- Timeline ruler beneath the frame — first appearance of the signature motif, with a
-             coral playhead and a real-looking timecode instead of a generic caption -->
-        <div class="relative mt-6 h-1.5 rounded-full ruler">
-          <span class="absolute -top-[7px] h-4 w-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--bg)]" style="left: 38%;"></span>
-        </div>
-        <p class="font-mono text-xs text-[var(--ink-muted)] mt-2">00:00:12:04</p>
+        <!-- Live position readout, in the timecode format the product itself uses -->
+        <span class="font-mono text-[10.5px] text-[var(--ink-2)] tabular-nums shrink-0" id="scrub-time" aria-hidden="true">00:00</span>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- ===================== Pipeline ("how it works") ===================== -->
-  <section id="pipeline" class="bg-[var(--surface)] border-y border-[var(--border)]">
-    <div class="container-wide py-14 sm:py-20">
-      <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">The pipeline</p>
-      <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">From upload to render in three steps</h2>
+  <!-- =========================================================================
+       Hero — the thesis. The illustration is the argument: a chat message on the
+       right, captions and an overlay already on the frame, layers on the timeline.
+       "You type, the video changes," shown rather than claimed.
+       ========================================================================= -->
+  <section id="top" class="hero-wash border-b border-[var(--line)]" data-chapter="Intro">
+    <div class="shell py-14 lg:py-20">
+      <div class="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 lg:gap-14 items-center">
 
-      <!-- Ruler motif reused as the connective thread between the three real pipeline stages —
-           order matters here (it's a literal sequence), so a timeline reads truer than 01/02/03 badges. -->
-      <div class="relative">
-        <div class="absolute top-[7px] left-0 right-0 h-1.5 rounded-full ruler hidden sm:block"></div>
-        <div class="grid sm:grid-cols-3 gap-8 sm:gap-6 relative">
-
-          <div class="flex flex-col items-start">
-            <span class="w-4 h-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-4"></span>
-            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent)]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
-              </svg>
-            </span>
-            <h3 class="font-display font-semibold mb-1">Transcribed</h3>
-            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Groq/Whisper turns the audio track into a clean, timestamped transcript.</p>
-          </div>
-
-          <div class="flex flex-col items-start">
-            <span class="w-4 h-4 rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-4"></span>
-            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent)]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="4" width="20" height="14" rx="2.5"/><line x1="6" y1="9" x2="12" y2="9"/><line x1="6" y1="13" x2="16" y2="13"/>
-              </svg>
-            </span>
-            <h3 class="font-display font-semibold mb-1">Captioned</h3>
-            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">The agent generates styled captions, synced to speech, from a plain-English request.</p>
-          </div>
-
-          <div class="flex flex-col items-start">
-            <span class="w-4 h-4 rounded-full bg-[var(--accent-done)] ring-4 ring-[var(--surface)] mb-4"></span>
-            <span class="w-9 h-9 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center mb-3 text-[var(--accent-done)]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="18" rx="2.5"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/>
-              </svg>
-            </span>
-            <h3 class="font-display font-semibold mb-1">Rendered</h3>
-            <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Overlays and captions are composited into a final video, ready to export.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== Receipts / stats ===================== -->
-  <section class="container-wide py-14 sm:py-20">
-    <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">Real numbers</p>
-    <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">Proof, not promises</h2>
-
-    <!-- Same four before/after figures as the previous designs — now stat cards instead of a
-         terminal log, since the visual language moved from "logs" to "dashboard". -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
-      <div class="card p-5 sm:p-6">
-        <p class="text-sm text-[var(--ink-muted)] mb-3">Weekly availability collation</p>
-        <p class="font-display text-xl sm:text-2xl font-bold">
-          <span class="text-[var(--ink-muted)] font-normal line-through text-base">6h</span>
-          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
-          <span class="text-[var(--accent-done)]">35min</span>
-        </p>
-      </div>
-      <div class="card p-5 sm:p-6">
-        <p class="text-sm text-[var(--ink-muted)] mb-3">HR + control room forms</p>
-        <p class="font-display text-xl sm:text-2xl font-bold">
-          <span class="text-[var(--ink-muted)] font-normal line-through text-base">189</span>
-          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
-          <span class="text-[var(--accent-done)]">82 auto</span>
-        </p>
-      </div>
-      <div class="card p-5 sm:p-6">
-        <p class="text-sm text-[var(--ink-muted)] mb-3">Dossier extraction, cost/mo</p>
-        <p class="font-display text-xl sm:text-2xl font-bold">
-          <span class="text-[var(--ink-muted)] font-normal line-through text-base">$35.00</span>
-          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
-          <span class="text-[var(--accent-done)]">$0.57</span>
-        </p>
-      </div>
-      <div class="card p-5 sm:p-6">
-        <p class="text-sm text-[var(--ink-muted)] mb-3">Electric store sales (2yr)</p>
-        <p class="font-display text-xl sm:text-2xl font-bold">
-          <span class="text-[var(--ink-muted)] font-normal line-through text-base">50k</span>
-          <span class="text-[var(--ink-muted)] mx-1">&rarr;</span>
-          <span class="text-[var(--accent-done)]">180k PKR</span>
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== About ===================== -->
-  <section class="bg-[var(--surface)] border-y border-[var(--border)]">
-    <div class="container-wide py-14 sm:py-20">
-      <div class="grid sm:grid-cols-[auto_1fr] gap-8 items-start">
-        <!-- Illustrated monogram badge stands in for a headshot, per "no real photos" -->
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center font-display font-bold text-lg text-white shrink-0"
-             style="background: linear-gradient(135deg, var(--accent) 0%, #6ea8f7 100%);">
-          SA
-        </div>
-        <div>
-          <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">About</p>
-          <p class="text-[var(--ink-muted)] text-base leading-relaxed mb-4 max-w-2xl">
-            Currently on placement with a facilities company, replacing WhatsApp groups and paper forms
-            with AI pipelines that non-technical site staff actually use day to day. Before that, built
-            a loan platform in Django; before that, ran a small electronics store while finishing a CS
-            degree &mdash; turns out reading sales data and reading operational data aren't that different.
-            Now doing an MSc in Data Science at Kingston.
+        <div class="hero-seq">
+          <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-5">
+            <span class="text-[var(--accent)] font-medium">SherazLabs</span>
           </p>
-          <div class="flex flex-wrap gap-2">
-            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">London</span>
-            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">MSc Data Science, Kingston</span>
-            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">LangGraph</span>
-            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">Django</span>
-            <span class="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--ink-muted)]">AWS</span>
+          <h1 class="font-display text-[2.6rem] sm:text-6xl font-extrabold leading-[0.98] tracking-[-0.03em] mb-6">
+            AI tools that do the
+            <span class="relative inline-block">
+              boring half
+              <!-- Underline drawn in caption yellow: the signature colour marking the
+                   one phrase the whole lab is about. -->
+              <span class="absolute left-0 right-0 -bottom-1 h-[6px] rounded-full bg-[var(--signal)]" aria-hidden="true"></span>
+            </span>
+            of the job.
+          </h1>
+          <p class="text-[var(--ink-2)] text-[17px] leading-relaxed mb-8 max-w-xl">
+            I'm Sheraz, an applied AI engineer. I build automation that non-technical teams
+            actually use day to day, and this is where those tools live. Start with
+            <strong class="text-[var(--ink)] font-semibold">Video Agent</strong>: upload a video,
+            tell it what you want changed, get it back captioned and rendered.
+          </p>
+          <div class="flex flex-wrap items-center gap-3 mb-9">
+            <a href="{% url 'upload' %}"
+               class="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-ink)] text-white text-[15px] font-semibold px-6 py-3.5 rounded-xl shadow-[var(--shadow-md)] transition-colors">
+              Try Video Agent
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            </a>
+            <a href="#receipts"
+               class="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--line)] hover:border-[#c3cadd] text-[15px] font-semibold px-5 py-3.5 rounded-xl transition-colors">
+              See the receipts
+            </a>
+            <span class="text-[13px] text-[var(--ink-2)] pl-1">No account needed</span>
+          </div>
+
+          <!-- The honest substitute for a customer-logo row: what the thing is actually
+               built on. Real information, and it sits where a visitor expects proof. -->
+          <div>
+            <p class="font-mono text-[10px] tracking-[0.16em] uppercase text-[var(--ink-2)] mb-3">Running on</p>
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] font-medium text-[var(--ink-2)]">
+              <span>Whisper</span><span class="text-[var(--line)]">/</span>
+              <span>LangGraph</span><span class="text-[var(--line)]">/</span>
+              <span>Django</span><span class="text-[var(--line)]">/</span>
+              <span>FFmpeg</span><span class="text-[var(--line)]">/</span>
+              <span>AWS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------------------------------------------------------------
+             Product illustration. Hand-drawn in HTML/CSS (no screenshots, per
+             the standing direction) but shaped like the real editor: job rail,
+             video canvas, chat panel, layered timeline.
+             --------------------------------------------------------------- -->
+        <div class="hero-seq">
+          <div class="rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--line)] shadow-[var(--shadow-lg)]">
+
+            <!-- Window titlebar -->
+            <div class="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--line)] bg-[#fbfcfe]">
+              <div class="flex gap-1.5" aria-hidden="true">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ff6058]"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#28ca42]"></span>
+              </div>
+              <span class="font-mono text-[11px] text-[var(--ink-2)] truncate">site-walkthrough.mp4</span>
+              <span class="ml-auto font-mono text-[9.5px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--done)]/10 text-[var(--done)] font-medium">Rendered</span>
+            </div>
+
+            <div class="grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[52px_minmax(0,1fr)_190px]">
+
+              <!-- Job rail: stand-in thumbnails, mirrors the app's real left sidebar -->
+              <div class="hidden sm:flex flex-col gap-2 p-2.5 border-r border-[var(--line)] bg-[#fbfcfe]">
+                <span class="h-8 rounded-md bg-gradient-to-br from-[var(--accent)] to-[#7b83ff] ring-2 ring-[var(--accent)]/25"></span>
+                <span class="h-8 rounded-md bg-gradient-to-br from-[#c9d0e6] to-[#e2e6f1]"></span>
+                <span class="h-8 rounded-md bg-gradient-to-br from-[#c9d0e6] to-[#e2e6f1]"></span>
+                <span class="h-8 rounded-md bg-gradient-to-br from-[#c9d0e6] to-[#e2e6f1]"></span>
+              </div>
+
+              <!-- Canvas: the frame, with a generated caption and a placed overlay on it -->
+              <div class="relative aspect-video" style="background: linear-gradient(150deg, #171b2e 0%, #2b3352 55%, #3a3f6b 100%);">
+                <!-- Ambient shapes so the "frame" reads as footage, not a flat panel -->
+                <span class="absolute -left-6 top-6 w-28 h-28 rounded-full bg-white/[.06]" aria-hidden="true"></span>
+                <span class="absolute right-10 -bottom-8 w-36 h-36 rounded-full bg-[var(--accent)]/25 blur-xl" aria-hidden="true"></span>
+
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <span class="w-12 h-12 rounded-full bg-white/95 flex items-center justify-center shadow-lg">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="#0e1120"><path d="M8 5v14l11-7z"/></svg>
+                  </span>
+                </div>
+
+                <!-- Placed image overlay, top-right, with its own selection handles -->
+                <div class="absolute top-3 right-3 px-2 py-1 rounded bg-white/95 shadow-md ring-2 ring-[var(--signal)]">
+                  <span class="font-display text-[10px] font-bold tracking-tight text-[var(--ink)]">LOGO.png</span>
+                </div>
+
+                <!-- Generated caption, styled the way the product styles them -->
+                <div class="absolute left-1/2 -translate-x-1/2 bottom-4 max-w-[85%] px-3 py-1.5 rounded-md bg-black/70 backdrop-blur-sm">
+                  <p class="font-display text-[12px] sm:text-[13px] font-bold text-white text-center leading-snug tracking-tight">
+                    so that's the whole <span class="text-[var(--signal)]">handover process</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Chat panel: the instruction and the result, i.e. the actual interface -->
+              <div class="hidden sm:flex flex-col gap-2.5 p-3 border-l border-[var(--line)] bg-[#fbfcfe]">
+                <p class="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--ink-2)]">Agent</p>
+                <div class="self-end max-w-[92%] bg-[var(--accent)] text-white text-[11px] leading-snug px-2.5 py-2 rounded-xl rounded-br-sm">
+                  add captions and put the logo top-right
+                </div>
+                <div class="self-start max-w-[95%] bg-white border border-[var(--line)] text-[11px] leading-snug px-2.5 py-2 rounded-xl rounded-bl-sm text-[var(--ink-2)]">
+                  Done — 47 captions synced, logo placed at 00:00:04.
+                </div>
+                <div class="mt-auto flex items-center gap-1.5 border border-[var(--line)] rounded-lg px-2 py-1.5 bg-white">
+                  <span class="text-[10.5px] text-[#aab2c6]">Ask for a change…</span>
+                  <span class="ml-auto w-4 h-4 rounded bg-[var(--accent)] flex items-center justify-center">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Layered timeline: three tracks (video / captions / overlay) with a
+                 yellow playhead cutting through them — the same playhead language as
+                 the scrubber in the header, so the motif reads as one system. -->
+            <div class="relative border-t border-[var(--line)] px-3 py-3 bg-[#fbfcfe] space-y-1.5">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-[8.5px] w-7 shrink-0 text-[var(--ink-2)]">V1</span>
+                <span class="h-4 rounded bg-gradient-to-r from-[var(--accent)] to-[#6b74ff] flex-1"></span>
+                <span class="h-4 w-8 rounded bg-gradient-to-r from-[#6b74ff] to-[#9aa1ff]"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-[8.5px] w-7 shrink-0 text-[var(--ink-2)]">CC</span>
+                <div class="flex-1 flex gap-1">
+                  <span class="h-4 rounded bg-[var(--signal)]/70 flex-[3]"></span>
+                  <span class="h-4 rounded bg-[var(--signal)]/70 flex-[2]"></span>
+                  <span class="h-4 rounded bg-[var(--signal)]/70 flex-[4]"></span>
+                  <span class="h-4 rounded bg-[var(--signal)]/70 flex-[2]"></span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-[8.5px] w-7 shrink-0 text-[var(--ink-2)]">OVL</span>
+                <div class="flex-1 flex gap-1">
+                  <span class="h-4 w-10 rounded bg-transparent"></span>
+                  <span class="h-4 rounded bg-[var(--done)]/60 flex-[2]"></span>
+                  <span class="h-4 flex-[6]"></span>
+                </div>
+              </div>
+              <!-- Playhead -->
+              <span class="absolute top-2 bottom-2 w-[2px] bg-[var(--ink)]" style="left: 42%;" aria-hidden="true">
+                <span class="absolute -top-[3px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-sm bg-[var(--ink)]"></span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ===================== Tools & experiments ===================== -->
-  <section class="container-wide py-14 sm:py-20">
-    <p class="font-mono text-xs tracking-widest text-[var(--accent)] uppercase mb-3">Tools &amp; experiments</p>
-    <h2 class="font-display text-2xl sm:text-3xl font-bold mb-10 max-w-xl">Other things I've shipped</h2>
+  <!-- =========================================================================
+       Featured tool. The lab framing keeps the hero general, so the flagship
+       product needs one panel at full scale of its own.
+       ========================================================================= -->
+  <section id="video-agent" class="bg-[var(--surface)] border-b border-[var(--line)]" data-chapter="Video Agent">
+    <div class="shell py-16 lg:py-24 reveal">
+      <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-8">
+        <span class="text-[var(--accent)] font-medium">Featured tool</span>
+      </p>
 
-    <div class="grid sm:grid-cols-3 gap-6">
-      <!-- Live: whole card links into the real upload flow -->
-      <a href="{% url 'upload' %}" class="card p-6 hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5 outline-none transition-all block">
-        <div class="flex items-start justify-between mb-4">
-          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--accent)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="6" r="1.2"/><circle cx="17" cy="9.5" r="1.2"/><circle cx="15" cy="16" r="1.2"/><circle cx="8" cy="16" r="1.2"/><circle cx="6" cy="9.5" r="1.2"/>
-            </svg>
-          </span>
-          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--accent-done)]/10 text-[var(--accent-done)]">Live demo</span>
-        </div>
-        <h3 class="font-display font-semibold mb-1.5">Video Agent</h3>
-        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Caption and overlay a video by chatting with an agent &mdash; what you're using right now.</p>
-      </a>
+      <div class="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div>
+          <h2 class="font-display text-3xl sm:text-[2.75rem] font-extrabold leading-[1.02] tracking-[-0.025em] mb-5">
+            Video Agent
+          </h2>
+          <p class="text-[var(--ink-2)] text-[16.5px] leading-relaxed mb-8">
+            Editing software makes you learn a timeline. This one makes you write a sentence.
+            Upload footage, describe the change, and the agent transcribes, captions, places
+            overlays and renders the file — then shows you what it did so you can correct it.
+          </p>
 
-      <!-- Portfolio-only: same card recipe, muted badge, no link -->
-      <div class="card p-6">
-        <div class="flex items-start justify-between mb-4">
-          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--ink-muted)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>
-            </svg>
-          </span>
-          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--ink-muted)]/10 text-[var(--ink-muted)]">Portfolio</span>
+          <ul class="space-y-3.5 mb-9">
+            <li class="flex gap-3">
+              <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <span class="text-[15px] leading-snug"><strong class="font-semibold">No timeline to learn.</strong> <span class="text-[var(--ink-2)]">Every edit is a message in a chat.</span></span>
+            </li>
+            <li class="flex gap-3">
+              <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <span class="text-[15px] leading-snug"><strong class="font-semibold">It can fix its own work.</strong> <span class="text-[var(--ink-2)]">Ask it to restyle or remove anything it already added.</span></span>
+            </li>
+            <li class="flex gap-3">
+              <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <span class="text-[15px] leading-snug"><strong class="font-semibold">Start as a guest.</strong> <span class="text-[var(--ink-2)]">The full editing flow, no sign-up, nothing to cancel.</span></span>
+            </li>
+          </ul>
+
+          <a href="{% url 'upload' %}"
+             class="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-ink)] text-white text-[15px] font-semibold px-6 py-3.5 rounded-xl transition-colors">
+            Open Video Agent
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
         </div>
-        <h3 class="font-display font-semibold mb-1.5">Dossier Scanning Pipeline</h3>
-        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Turns paper application dossiers into structured database rows for $0.57/month instead of $35.</p>
+
+        <!-- Illustration: the conversation itself, as a transcript of one real session -->
+        <div class="card p-5 sm:p-7 bg-[var(--paper)]">
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">One session</p>
+          <div class="space-y-3">
+            <div class="flex justify-end">
+              <p class="max-w-[80%] bg-[var(--accent)] text-white text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-br-md">transcribe this</p>
+            </div>
+            <div class="flex justify-start">
+              <p class="max-w-[85%] bg-[var(--surface)] border border-[var(--line)] text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-bl-md text-[var(--ink-2)]">
+                Transcribed — 4:12 of audio, 68 segments.
+              </p>
+            </div>
+            <div class="flex justify-end">
+              <p class="max-w-[80%] bg-[var(--accent)] text-white text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-br-md">bold yellow captions, two lines max</p>
+            </div>
+            <div class="flex justify-start">
+              <p class="max-w-[85%] bg-[var(--surface)] border border-[var(--line)] text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-bl-md text-[var(--ink-2)]">
+                Captions built and styled. Want them higher on the frame?
+              </p>
+            </div>
+            <div class="flex justify-end">
+              <p class="max-w-[80%] bg-[var(--accent)] text-white text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-br-md">yes, and render it</p>
+            </div>
+            <div class="flex justify-start">
+              <p class="max-w-[85%] bg-[var(--surface)] border border-[var(--line)] text-[13.5px] leading-snug px-3.5 py-2.5 rounded-2xl rounded-bl-md text-[var(--ink-2)]">
+                Rendered. <span class="font-mono text-[11.5px] text-[var(--done)]">output-final.mp4</span>
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+  </section>
 
-      <div class="card p-6">
-        <div class="flex items-start justify-between mb-4">
-          <span class="w-10 h-10 rounded-lg bg-[var(--bg)] border border-[var(--border)] flex items-center justify-center text-[var(--ink-muted)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
+  <!-- =========================================================================
+       Capabilities — the structural beat where a pricing table would normally sit.
+       Every card is a feature that actually exists today, not a roadmap item.
+       ========================================================================= -->
+  <section id="capabilities" class="border-b border-[var(--line)]" data-chapter="What it does">
+    <div class="shell py-16 lg:py-24 reveal">
+      <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-6">
+        <span class="text-[var(--accent)] font-medium">What it does</span>
+      </p>
+      <h2 class="font-display text-3xl sm:text-[2.5rem] font-extrabold tracking-[-0.025em] leading-[1.05] mb-12 max-w-2xl">
+        Six things you can ask for today.
+      </h2>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.4 9.4 0 0 1-2.9-.4L3 21l1.6-4.8A8.3 8.3 0 0 1 3.6 11.5 8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/></svg>
           </span>
-          <span class="font-mono text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-[var(--ink-muted)]/10 text-[var(--ink-muted)]">Portfolio</span>
+          <h3 class="font-display text-[17px] font-bold mb-2">Edit by chatting</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Describe the change in plain English. No timeline, no keyframes, no menus to hunt through.</p>
         </div>
-        <h3 class="font-display font-semibold mb-1.5">AssistivePro</h3>
-        <p class="text-sm text-[var(--ink-muted)] leading-relaxed">Computer-vision pattern detection for accessibility, funded by a government R&amp;D grant.</p>
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="15" rx="2.5"/><line x1="6" y1="10" x2="13" y2="10"/><line x1="6" y1="14" x2="17" y2="14"/></svg>
+          </span>
+          <h3 class="font-display text-[17px] font-bold mb-2">Captions, synced and styled</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Whisper transcribes the audio, the agent styles the captions and syncs them to speech.</p>
+        </div>
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>
+          </span>
+          <h3 class="font-display text-[17px] font-bold mb-2">Image and PDF overlays</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Drop a logo, a diagram or a page from a PDF onto the frame at whatever timestamp you name.</p>
+        </div>
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-8 12h6l-1 8 8-12h-6l1-8z"/></svg>
+          </span>
+          <h3 class="font-display text-[17px] font-bold mb-2">One-click Skills</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">The common jobs are buttons too, for the times you'd rather not type the request out.</p>
+        </div>
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <h3 class="font-display text-[17px] font-bold mb-2">No account required</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Guests get the whole editing flow. Your video is held for six hours, then cleared automatically.</p>
+        </div>
+
+        <div class="card card-lift p-6">
+          <span class="w-11 h-11 rounded-xl bg-[var(--accent)]/8 flex items-center justify-center mb-5 text-[var(--accent)]">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.9.8c0 1.7-2.5 2.5-2.5 2.5"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+          </span>
+          <h3 class="font-display text-[17px] font-bold mb-2">It knows its own interface</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Ask where a control is and it reads the real map of the app instead of guessing at an answer.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       Pipeline. A real ordered sequence, so the timeline ruler (rather than
+       decorative 01/02/03 badges) is the honest structural device here.
+       ========================================================================= -->
+  <section id="pipeline" class="bg-[var(--surface)] border-b border-[var(--line)]" data-chapter="How it works">
+    <div class="shell py-16 lg:py-24 reveal">
+      <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-6">
+        <span class="text-[var(--accent)] font-medium">How it works</span>
+      </p>
+      <h2 class="font-display text-3xl sm:text-[2.5rem] font-extrabold tracking-[-0.025em] leading-[1.05] mb-12 max-w-2xl">
+        Upload to finished file, in three passes.
+      </h2>
+
+      <div class="relative">
+        <!-- The ruler threads the three stages together — the same time-ruler texture
+             used under the hero, marking that these happen in order along one clip. -->
+        <div class="absolute top-[9px] left-0 right-0 h-[5px] rounded-full ruler hidden md:block" aria-hidden="true"></div>
+
+        <div class="grid md:grid-cols-3 gap-8 md:gap-7 relative">
+
+          <div>
+            <span class="block w-[18px] h-[18px] rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-7"></span>
+            <div class="card p-6">
+              <p class="font-mono text-[10px] text-[var(--ink-2)] mb-4">PASS 01 · TRANSCRIBE</p>
+              <!-- Mini illustration: a waveform, i.e. what this pass actually consumes -->
+              <div class="flex items-end gap-[3px] h-10 mb-5" aria-hidden="true">
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/30" style="height:35%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/50" style="height:70%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]" style="height:100%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/60" style="height:55%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/40" style="height:80%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/70" style="height:45%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/30" style="height:90%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/50" style="height:30%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/80" style="height:65%"></span>
+                <span class="w-[3px] rounded-full bg-[var(--accent)]/30" style="height:40%"></span>
+              </div>
+              <h3 class="font-display text-[18px] font-bold mb-2">Transcribed</h3>
+              <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Whisper turns the audio track into a clean, timestamped transcript of what was said.</p>
+            </div>
+          </div>
+
+          <div>
+            <span class="block w-[18px] h-[18px] rounded-full bg-[var(--accent)] ring-4 ring-[var(--surface)] mb-7"></span>
+            <div class="card p-6">
+              <p class="font-mono text-[10px] text-[var(--ink-2)] mb-4">PASS 02 · CAPTION</p>
+              <!-- Mini illustration: caption chips laid on a track -->
+              <div class="flex gap-1.5 h-10 items-center mb-5" aria-hidden="true">
+                <span class="h-5 rounded bg-[var(--signal)]/70 flex-[3]"></span>
+                <span class="h-5 rounded bg-[var(--signal)]/70 flex-[2]"></span>
+                <span class="h-5 rounded bg-[var(--signal)]/70 flex-[4]"></span>
+                <span class="h-5 rounded bg-[var(--signal)]/40 flex-[2]"></span>
+              </div>
+              <h3 class="font-display text-[18px] font-bold mb-2">Captioned</h3>
+              <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">The agent styles and places the captions from a plain-English request, then any overlays you asked for.</p>
+            </div>
+          </div>
+
+          <div>
+            <span class="block w-[18px] h-[18px] rounded-full bg-[var(--done)] ring-4 ring-[var(--surface)] mb-7"></span>
+            <div class="card p-6">
+              <p class="font-mono text-[10px] text-[var(--ink-2)] mb-4">PASS 03 · RENDER</p>
+              <!-- Mini illustration: a completed render bar -->
+              <div class="h-10 flex items-center mb-5" aria-hidden="true">
+                <div class="w-full h-2.5 rounded-full bg-[var(--line)] overflow-hidden">
+                  <div class="h-full w-full rounded-full bg-[var(--done)]"></div>
+                </div>
+              </div>
+              <h3 class="font-display text-[18px] font-bold mb-2">Rendered</h3>
+              <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Everything is composited back into one video file, ready to play or download.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       Receipts — real before/after figures from shipped work. This is the page's
+       social proof, and it is honest: no invented testimonials or client logos.
+       ========================================================================= -->
+  <section id="receipts" class="border-b border-[var(--line)]" data-chapter="Receipts">
+    <div class="shell py-16 lg:py-24 reveal">
+      <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-6">
+        <span class="text-[var(--accent)] font-medium">Receipts</span>
+      </p>
+      <h2 class="font-display text-3xl sm:text-[2.5rem] font-extrabold tracking-[-0.025em] leading-[1.05] mb-4 max-w-2xl">
+        Numbers from work that shipped.
+      </h2>
+      <p class="text-[var(--ink-2)] text-[16px] mb-12 max-w-xl">
+        Four measured before-and-afters from automation running in real operations, not from a demo.
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <div class="card card-lift p-6">
+          <p class="text-[13.5px] text-[var(--ink-2)] leading-snug mb-6 min-h-[2.6em]">Weekly availability collation</p>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-[15px] text-[var(--ink-2)] line-through decoration-1">6h</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            <span class="font-display text-[2rem] font-extrabold tracking-tight text-[var(--done)] leading-none">35min</span>
+          </div>
+        </div>
+
+        <div class="card card-lift p-6">
+          <p class="text-[13.5px] text-[var(--ink-2)] leading-snug mb-6 min-h-[2.6em]">HR + control room forms</p>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-[15px] text-[var(--ink-2)] line-through decoration-1">189</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            <span class="font-display text-[2rem] font-extrabold tracking-tight text-[var(--done)] leading-none">82 auto</span>
+          </div>
+        </div>
+
+        <div class="card card-lift p-6">
+          <p class="text-[13.5px] text-[var(--ink-2)] leading-snug mb-6 min-h-[2.6em]">Dossier extraction, cost per month</p>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-[15px] text-[var(--ink-2)] line-through decoration-1">$35.00</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            <span class="font-display text-[2rem] font-extrabold tracking-tight text-[var(--done)] leading-none">$0.57</span>
+          </div>
+        </div>
+
+        <div class="card card-lift p-6">
+          <p class="text-[13.5px] text-[var(--ink-2)] leading-snug mb-6 min-h-[2.6em]">Electric store sales, over two years</p>
+          <div class="flex items-baseline gap-2">
+            <span class="font-display text-[15px] text-[var(--ink-2)] line-through decoration-1">50k</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            <span class="font-display text-[2rem] font-extrabold tracking-tight text-[var(--done)] leading-none">180k</span>
+          </div>
+          <p class="font-mono text-[10.5px] text-[var(--ink-2)] mt-2">PKR</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       The lab — everything else that's been built. Video Agent is the only one
+       with a live link; the other two are honestly tagged as portfolio work.
+       ========================================================================= -->
+  <section id="lab" class="bg-[var(--surface)] border-b border-[var(--line)]" data-chapter="The lab">
+    <div class="shell py-16 lg:py-24 reveal">
+      <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-6">
+        <span class="text-[var(--accent)] font-medium">The lab</span>
+      </p>
+      <h2 class="font-display text-3xl sm:text-[2.5rem] font-extrabold tracking-[-0.025em] leading-[1.05] mb-12 max-w-2xl">
+        Other things I've built.
+      </h2>
+
+      <div class="grid sm:grid-cols-3 gap-6">
+
+        <a href="{% url 'upload' %}" class="card card-lift p-7 block group">
+          <div class="flex items-start justify-between mb-6">
+            <span class="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[#7b83ff] flex items-center justify-center text-white shadow-[var(--shadow-sm)]">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none"/></svg>
+            </span>
+            <span class="font-mono text-[9.5px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-[var(--done)]/10 text-[var(--done)] font-medium">Live</span>
+          </div>
+          <h3 class="font-display text-[19px] font-bold mb-2 group-hover:text-[var(--accent)] transition-colors">Video Agent</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed mb-4">Caption and overlay a video by chatting with an agent. Free to try, no account needed.</p>
+          <span class="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-[var(--accent)]">
+            Open it
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <div class="card p-7">
+          <div class="flex items-start justify-between mb-6">
+            <span class="w-12 h-12 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-center justify-center text-[var(--ink-2)]">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9.5" y1="13" x2="15" y2="13"/><line x1="9.5" y1="17" x2="15" y2="17"/></svg>
+            </span>
+            <span class="font-mono text-[9.5px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-[var(--ink-2)]/10 text-[var(--ink-2)] font-medium">Portfolio</span>
+          </div>
+          <h3 class="font-display text-[19px] font-bold mb-2">Dossier Scanning Pipeline</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Turns paper application dossiers into structured database rows for $0.57 a month instead of $35.</p>
+        </div>
+
+        <div class="card p-7">
+          <div class="flex items-start justify-between mb-6">
+            <span class="w-12 h-12 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-center justify-center text-[var(--ink-2)]">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+            <span class="font-mono text-[9.5px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-[var(--ink-2)]/10 text-[var(--ink-2)] font-medium">Portfolio</span>
+          </div>
+          <h3 class="font-display text-[19px] font-bold mb-2">AssistivePro</h3>
+          <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed">Computer-vision pattern detection for accessibility, funded by a government R&amp;D grant.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       About — kept, because the lab identity is the person. Monogram stands in
+       for a photo per the no-real-photos direction.
+       ========================================================================= -->
+  <section id="about" class="border-b border-[var(--line)]" data-chapter="About">
+    <div class="shell py-16 lg:py-24 reveal">
+      <div class="grid lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-10 lg:gap-16">
+
+        <div>
+          <p class="eyebrow text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-6">
+            <span class="text-[var(--accent)] font-medium">About</span>
+          </p>
+          <div class="flex items-center gap-4 mb-6">
+            <span class="w-16 h-16 rounded-2xl flex items-center justify-center font-display font-extrabold text-[19px] text-white shrink-0 shadow-[var(--shadow-md)]"
+                  style="background: linear-gradient(135deg, var(--accent) 0%, #7b83ff 100%);">SA</span>
+            <div>
+              <p class="font-display text-[20px] font-bold leading-tight">Sheraz Ali</p>
+              <p class="text-[14px] text-[var(--ink-2)]">Applied AI engineer, London</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--ink-2)]">London</span>
+            <span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--ink-2)]">MSc Data Science, Kingston</span>
+            <span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--ink-2)]">LangGraph</span>
+            <span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--ink-2)]">Django</span>
+            <span class="font-mono text-[11px] px-2.5 py-1 rounded-full bg-[var(--surface)] border border-[var(--line)] text-[var(--ink-2)]">AWS</span>
+          </div>
+        </div>
+
+        <div class="lg:pt-14">
+          <p class="text-[var(--ink-2)] text-[17px] leading-[1.75] mb-5">
+            Currently on placement with a facilities company, replacing WhatsApp groups and paper
+            forms with AI pipelines that non-technical site staff actually use day to day.
+          </p>
+          <p class="text-[var(--ink-2)] text-[17px] leading-[1.75]">
+            Before that I built a loan platform in Django, and before that I ran a small electronics
+            store while finishing a CS degree — reading sales data and reading operational data turn
+            out not to be that different. Now doing an MSc in Data Science at Kingston.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       Closing CTA. Dark band on a light page: the one place the page inverts, so
+       the final ask is the highest-contrast thing on it.
+       ========================================================================= -->
+  <section class="relative overflow-hidden" style="background: linear-gradient(120deg, #0e1120 0%, #1b2050 60%, #2b34e8 140%);">
+    <!-- Ruler texture at low opacity, tying the closing band back to the timeline motif -->
+    <div class="absolute inset-x-0 top-0 h-[5px] opacity-25 ruler" aria-hidden="true"></div>
+    <div class="shell py-16 lg:py-24 text-center reveal">
+      <h2 class="font-display text-3xl sm:text-[3rem] font-extrabold tracking-[-0.03em] leading-[1.02] text-white mb-5 max-w-3xl mx-auto">
+        Got something repetitive and manual?
+      </h2>
+      <p class="text-white/65 text-[17px] leading-relaxed mb-9 max-w-xl mx-auto">
+        Try the video tool, or tell me about the process eating your week. Building these is what I do.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href="{% url 'upload' %}"
+           class="inline-flex items-center gap-2 bg-[var(--signal)] hover:bg-[#ffd166] text-[var(--ink)] text-[15px] font-bold px-7 py-4 rounded-xl transition-colors">
+          Try Video Agent
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="mailto:sherazacgb@gmail.com"
+           class="inline-flex items-center gap-2 border border-white/25 hover:bg-white/10 text-white text-[15px] font-semibold px-6 py-4 rounded-xl transition-colors">
+          Email me
+        </a>
       </div>
     </div>
   </section>
 
   <!-- ===================== Footer ===================== -->
-  <footer class="border-t border-[var(--border)] bg-[var(--surface)]">
-    <div class="container-wide py-8 flex items-center justify-between text-sm text-[var(--ink-muted)]">
-      <span>&copy; Sheraz Ali</span>
-      <a href="mailto:sherazacgb@gmail.com" class="hover:text-[var(--accent)] focus-visible:text-[var(--accent)] transition-colors">sherazacgb@gmail.com</a>
+  <footer class="bg-[var(--surface)] border-t border-[var(--line)]">
+    <div class="shell py-12">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
+
+        <div>
+          <a href="#top" class="flex items-center gap-2.5 mb-4">
+            <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-7 h-7 rounded-md">
+            <span class="font-display font-bold text-[17px] tracking-tight">Sheraz Labs</span>
+          </a>
+          <p class="text-[14px] text-[var(--ink-2)] leading-relaxed max-w-[26ch]">
+            Small, sharp AI tools built by one applied AI engineer.
+          </p>
+        </div>
+
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-4">Tools</p>
+          <ul class="space-y-2.5 text-[14px]">
+            <li><a href="{% url 'upload' %}" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Video Agent</a></li>
+            <li><a href="#lab" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Dossier Pipeline</a></li>
+            <li><a href="#lab" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">AssistivePro</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-4">This site</p>
+          <ul class="space-y-2.5 text-[14px]">
+            <li><a href="#capabilities" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">What it does</a></li>
+            <li><a href="#pipeline" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">How it works</a></li>
+            <li><a href="#receipts" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Receipts</a></li>
+            <li><a href="#about" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">About</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-4">Connect</p>
+          <ul class="space-y-2.5 text-[14px]">
+            <li><a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">GitHub</a></li>
+            <li><a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">LinkedIn</a></li>
+            <li><a href="mailto:sherazacgb@gmail.com" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">sherazacgb@gmail.com</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pt-7 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-3 text-[13px] text-[var(--ink-2)]">
+        <span>&copy; Sheraz Ali</span>
+        <span class="font-mono text-[11px]">Built in London</span>
+      </div>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      // ---------------------------------------------------------------------
+      // The scrubber. Doubles as the page's scroll-progress indicator and its
+      // section navigation, so the ticks must sit at each section's genuine
+      // document offset rather than at hand-written guesses that drift.
+      // ---------------------------------------------------------------------
+      var track = document.getElementById('scrub');
+      var fill = document.getElementById('scrub-fill');
+      var head = document.getElementById('scrub-head');
+      var time = document.getElementById('scrub-time');
+      var sections = Array.prototype.slice.call(document.querySelectorAll('[data-chapter]'));
+      var ticks = [];
+
+      // Nominal runtime the readout counts across. Purely a display device — it maps
+      // scroll progress onto the timecode format the product itself uses.
+      var RUNTIME = 150;
+
+      // Honour the OS reduced-motion setting for the scrubber's own jumps, since
+      // scroll-behavior:smooth is already disabled for those visitors in CSS.
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function scrollable() {
+        return Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      }
+
+      // Builds one tick per section. Called on load and again on resize, because a
+      // reflow moves every section's offset and stale ticks would jump to the wrong place.
+      function buildTicks() {
+        ticks.forEach(function (t) { t.el.remove(); });
+        ticks = [];
+        var max = scrollable();
+        sections.forEach(function (section) {
+          var pct = Math.min(100, (section.offsetTop / max) * 100);
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'scrub-tick';
+          btn.style.left = pct + '%';
+          btn.setAttribute('aria-label', 'Jump to ' + section.dataset.chapter);
+          btn.innerHTML = '<span>' + section.dataset.chapter + '</span>';
+          btn.addEventListener('click', function () {
+            section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+          });
+          track.appendChild(btn);
+          ticks.push({ el: btn, section: section });
+        });
+      }
+
+      // Advances the fill, playhead and timecode, and marks whichever section the
+      // viewport is currently sitting in as the active tick.
+      function update() {
+        var progress = Math.min(1, Math.max(0, window.scrollY / scrollable()));
+        var pct = progress * 100;
+        fill.style.width = pct + '%';
+        head.style.left = pct + '%';
+
+        var secs = Math.round(progress * RUNTIME);
+        var mm = String(Math.floor(secs / 60)).padStart(2, '0');
+        var ss = String(secs % 60).padStart(2, '0');
+        time.textContent = mm + ':' + ss;
+
+        // Active section = the last one whose top has passed the sticky header.
+        var marker = window.scrollY + 140;
+        var activeIndex = 0;
+        ticks.forEach(function (t, i) {
+          if (t.section.offsetTop <= marker) { activeIndex = i; }
+        });
+        ticks.forEach(function (t, i) {
+          if (i === activeIndex) { t.el.setAttribute('aria-current', 'true'); }
+          else { t.el.removeAttribute('aria-current'); }
+        });
+      }
+
+      // Scroll fires far more often than the screen repaints; coalescing into one
+      // rAF keeps the handler off the critical path on cheap hardware.
+      var queued = false;
+      function onScroll() {
+        if (queued) { return; }
+        queued = true;
+        requestAnimationFrame(function () { update(); queued = false; });
+      }
+
+      buildTicks();
+      update();
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', function () { buildTicks(); update(); });
+
+      // ---------------------------------------------------------------------
+      // Section reveal. One quiet entrance each; unobserved after firing so a
+      // section never re-animates when the visitor scrolls back up past it.
+      // ---------------------------------------------------------------------
+      var revealables = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-in');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { rootMargin: '0px 0px -12% 0px', threshold: 0.05 });
+        revealables.forEach(function (el) { io.observe(el); });
+      } else {
+        // No IntersectionObserver: show everything rather than leave the page blank.
+        revealables.forEach(function (el) { el.classList.add('is-in'); });
+      }
+    })();
+  </script>
 
 </body>
 </html>
