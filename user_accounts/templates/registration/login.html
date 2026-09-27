@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,23 +14,8 @@
     })();
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Same token subset as base.html, kept in sync manually since this page is standalone. */
-    :root {
-      --bg-page: #121212; --bg-surface: #1e1e1e;
-      --border: #2a2a2a;
-      --text-1: #f5f5f5; --text-4: #9ca3af; --text-6: #4b5563;
-      --danger-bg-soft: rgba(239,68,68,0.1); --danger-border: rgba(239,68,68,0.2); --danger-text: #f87171;
-      --accent-text: #5b9bf5;
-    }
-    :root[data-theme="light"] {
-      --bg-page: #f7f7f5; --bg-surface: #ffffff;
-      --border: #e4e4e1;
-      --text-1: #18181b; --text-4: #52525b; --text-6: #a1a1aa;
-      --danger-bg-soft: #fee2e2; --danger-border: #fca5a5; --danger-text: #b91c1c;
-      --accent-text: #1d4ed8;
-    }
-  </style>
+  <!-- Same shared theme file base.html uses, so the tokens can't drift between the two -->
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body class="bg-[var(--bg-page)] text-[var(--text-1)] min-h-screen flex items-center justify-center font-sans">
 

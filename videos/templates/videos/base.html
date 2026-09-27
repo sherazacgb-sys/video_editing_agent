@@ -31,78 +31,10 @@
       }
     }
   </script>
-  <style>
-    /* Theme tokens: dark is the default palette (no attribute needed), light
-       overrides via [data-theme="light"] on <html>, set by the init script above
-       and toggleTheme() below. Every hardcoded color in this app's templates has
-       been swapped for one of these vars so the toggle actually repaints the UI. */
-    :root {
-      --bg-page: #121212;      --bg-surface: #1e1e1e;   --bg-raised: #252525;
-      --bg-sunken: #181818;    --bg-hover: #2a2a2a;      --bg-hover-2: #333333;
-      --border: #2a2a2a;       --border-strong: #3a3a3a;
-      --text-1: #f5f5f5; --text-2: #e5e7eb; --text-3: #d1d5db; --text-4: #9ca3af;
-      --text-5: #6b7280; --text-6: #4b5563; --text-7: #374151;
-      --success-bg: rgba(20,83,45,0.4);  --success-text: #4ade80;
-      --danger-bg: rgba(127,29,29,0.4);  --danger-text: #f87171;
-      --danger-bg-soft: rgba(239,68,68,0.1); --danger-border: rgba(239,68,68,0.3);
-      --warning-bg: rgba(120,53,15,0.4);
-      --accent-text: #5b9bf5;
-    }
-    :root[data-theme="light"] {
-      --bg-page: #f7f7f5;      --bg-surface: #ffffff;   --bg-raised: #ffffff;
-      --bg-sunken: #f0f0ed;    --bg-hover: #eeeeec;      --bg-hover-2: #e2e2df;
-      --border: #e4e4e1;       --border-strong: #d4d4d1;
-      --text-1: #18181b; --text-2: #27272a; --text-3: #3f3f46; --text-4: #52525b;
-      --text-5: #71717a; --text-6: #a1a1aa; --text-7: #c4c4c8;
-      --success-bg: #dcfce7;  --success-text: #15803d;
-      --danger-bg: #fee2e2;   --danger-text: #b91c1c;
-      --danger-bg-soft: #fee2e2; --danger-border: #fca5a5;
-      --warning-bg: #fef3c7;
-      --accent-text: #1d4ed8;
-    }
-
-    /* Thin custom scrollbar, shared by every scrollable region (sidebar list,
-       chat feed, main content) so the whole app has one consistent scrollbar look */
-    .styled-scroll {
-      /* Firefox: thin scrollbar, colors follow the active theme */
-      scrollbar-width: thin;
-      scrollbar-color: var(--border-strong) var(--bg-surface);
-    }
-    /* Webkit (Chrome, Edge): custom scrollbar track and thumb */
-    .styled-scroll::-webkit-scrollbar {
-      width: 4px; /* narrow so it doesn't eat space from the content */
-    }
-    .styled-scroll::-webkit-scrollbar-track {
-      background: transparent; /* invisible track blends into the panel behind it */
-    }
-    .styled-scroll::-webkit-scrollbar-thumb {
-      background: var(--border-strong); /* default thumb: subtle, theme-aware */
-      border-radius: 9999px; /* pill shape */
-      transition: background 0.2s ease;
-    }
-    .styled-scroll::-webkit-scrollbar-thumb:hover {
-      background: #2f6fd6; /* blue on hover to match brand accent */
-    }
-
-    /* Fade mask at top and bottom to hint at more items without a hard edge;
-       opt-in only (compact lists like the sidebar), not used on main content */
-    .scroll-fade {
-      -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,        /* fade out very top */
-        black 6%,              /* fully visible from 6% down */
-        black 90%,             /* fully visible until 90% */
-        transparent 100%       /* fade out at the very bottom */
-      );
-      mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        black 6%,
-        black 90%,
-        transparent 100%
-      );
-    }
-  </style>
+  <!-- Shared theme tokens + scrollbar utilities; lives in static/ so standalone pages (login) link the same file -->
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <!-- Per-page stylesheets: child templates add their own <link> here so it loads in <head> -->
+  {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-[var(--bg-page)] text-[var(--text-1)] h-screen flex overflow-hidden font-sans">
 

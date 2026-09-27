@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sheraz Labs — AI tools that do the boring half of the job</title>
+  <title>Sheraz Labs - AI tools that do the boring half of the job</title>
   <meta name="description" content="SherazLabs builds small, sharp AI tools. Start with Video Agent: upload a video, tell an agent what you want, get it back captioned and rendered.">
 
   <link rel="icon" type="image/png" href="{% static 'images/sherazlabs_favicon.png' %}">
@@ -43,133 +43,8 @@
     };
   </script>
 
-  <style>
-    /* ---------------------------------------------------------------------------
-       Palette. Bright/light per the confirmed direction — no dark-theme branching to
-       maintain on this page. Three accents, each with exactly one job, so the colour
-       never scatters: blue = anything interactive, yellow = the timeline/playhead
-       system (the page's signature) and nothing else, teal = live/complete states.
-       The yellow is caption yellow and the blue is a render-bar blue — both borrowed
-       from actual video tooling rather than picked as generic "SaaS accent" hues.
-       --------------------------------------------------------------------------- */
-    :root {
-      --ink: #0e1120;          /* near-black navy for type — softer than pure black on a light ground */
-      --ink-2: #5a6274;        /* muted body/secondary text */
-      --paper: #f4f6fb;        /* cool page ground */
-      --surface: #ffffff;      /* cards and alternating full-bleed bands */
-      --line: #e2e6f1;         /* hairline borders */
-      --accent: #2b34e8;       /* interactive: CTAs, links, active states */
-      --accent-ink: #1c23bd;   /* hover/pressed shade of the above */
-      --signal: #ffc53d;       /* playhead + scrubber ONLY — the signature colour */
-      --done: #00b894;         /* "live" / "rendered" badges only */
-      --shadow-sm: 0 2px 8px -3px rgba(14, 17, 32, .12);
-      --shadow-md: 0 18px 40px -24px rgba(14, 17, 32, .28);
-      --shadow-lg: 0 40px 80px -40px rgba(14, 17, 32, .45);
-    }
-
-    /* Anchor jumps land below the sticky header+scrubber stack instead of underneath it. */
-    html { scroll-behavior: smooth; scroll-padding-top: 108px; }
-
-    /* Wide shell for every section. Explicit max-width rather than a narrow centred
-       column, per the standing "take the whole space there is available" direction. */
-    .shell { max-width: 1440px; margin-inline: auto; padding-inline: 1.25rem; }
-    @media (min-width: 640px) { .shell { padding-inline: 2rem; } }
-
-    /* One card recipe. Defined once as a class so no element-vs-class specificity
-       fight can silently cancel a border or radius later in the file. */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 1.15rem;
-      box-shadow: var(--shadow-sm);
-    }
-    .card-lift { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
-    .card-lift:hover, .card-lift:focus-visible { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: #cfd6ea; }
-
-    /* Section label: small mono eyebrow + a hairline rule that runs to the edge of the
-       column, so each section opens like a labelled track rather than a floating caption. */
-    .eyebrow { display: flex; align-items: center; gap: .75rem; font-family: "JetBrains Mono", ui-monospace, monospace; }
-    .eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-    /* --- Signature: the sticky sub-nav is a video scrubber -----------------------
-       Not decoration — it is the page's real scroll-progress indicator and its section
-       navigation at once. Ticks sit at each section's true document offset, so clicking
-       a tick scrubs to that part of the page the same way a playhead would. */
-    .scrub-track { position: relative; height: 3px; background: var(--line); border-radius: 999px; }
-    .scrub-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--signal); border-radius: 999px; }
-    .scrub-head {
-      position: absolute; top: 50%; left: 0; width: 11px; height: 11px; border-radius: 999px;
-      background: var(--signal); border: 2px solid var(--surface);
-      box-shadow: 0 0 0 1px rgba(14, 17, 32, .12);
-      transform: translate(-50%, -50%); pointer-events: none;
-    }
-    /* Tick = one section marker. The hit area is deliberately taller than the visible
-       mark so it stays clickable on a 3px-tall track. */
-    .scrub-tick {
-      position: absolute; top: 50%; transform: translate(-50%, -50%);
-      height: 18px; width: 18px; display: grid; place-items: center;
-      background: none; border: 0; padding: 0; cursor: pointer;
-    }
-    .scrub-tick::before {
-      content: ""; width: 5px; height: 5px; border-radius: 999px;
-      background: #c3cadd; transition: background .18s ease, transform .18s ease;
-    }
-    .scrub-tick:hover::before, .scrub-tick:focus-visible::before { background: var(--accent); transform: scale(1.5); }
-    .scrub-tick[aria-current="true"]::before { background: var(--ink); transform: scale(1.5); }
-    /* Section name shown above its tick on hover/focus — the tick's label, not a tooltip
-       for decoration, so keyboard users get it too. */
-    .scrub-tick span {
-      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      white-space: nowrap; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-      background: var(--ink); color: #fff; padding: 3px 7px; border-radius: 5px;
-      opacity: 0; transition: opacity .18s ease; pointer-events: none;
-    }
-    .scrub-tick:hover span, .scrub-tick:focus-visible span { opacity: 1; }
-
-    /* Timeline-ruler texture: a literal editor time ruler, reused as the thread between
-       the pipeline's three stages so the divider carries meaning instead of decorating. */
-    .ruler { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 13px); }
-
-    /* Hero + CTA ground. A soft off-axis wash rather than a centred symmetric gradient,
-       so the hero doesn't read as the stock "radial glow behind the headline" treatment. */
-    .hero-wash {
-      background:
-        radial-gradient(1100px 460px at 88% -8%, rgba(43, 52, 232, .10), transparent 62%),
-        radial-gradient(760px 420px at 4% 8%, rgba(255, 197, 61, .16), transparent 60%),
-        var(--paper);
-    }
-
-    /* --- Scroll reveal ---------------------------------------------------------
-       Scoped under `.js` so the no-JS render is complete and visible (see the head
-       script). One quiet entrance per section; no per-element stagger beyond the hero. */
-    .js .reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s ease, transform .55s ease; }
-    .js .reveal.is-in { opacity: 1; transform: none; }
-
-    /* The hero's single orchestrated moment — children enter in reading order. */
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    .js .hero-seq > * { animation: rise .65s cubic-bezier(.2, .7, .3, 1) both; }
-    .js .hero-seq > *:nth-child(2) { animation-delay: .07s; }
-    .js .hero-seq > *:nth-child(3) { animation-delay: .14s; }
-    .js .hero-seq > *:nth-child(4) { animation-delay: .21s; }
-    .js .hero-seq > *:nth-child(5) { animation-delay: .28s; }
-
-    /* Anyone who has asked the OS for less motion gets the finished page immediately:
-       no entrance animation, no smooth-scroll hijack on the scrubber's jumps. */
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      .js .reveal { opacity: 1; transform: none; transition: none; }
-      .js .hero-seq > * { animation: none; }
-      .card-lift { transition: none; }
-    }
-
-    /* Consistent, visible keyboard focus everywhere — the browser default ring is
-       nearly invisible against the blue CTAs. */
-    a:focus-visible, button:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 3px;
-      border-radius: 6px;
-    }
-  </style>
+  <!-- Landing-only styles (palette, scrubber, reveal animations), served as a cacheable static file -->
+  <link rel="stylesheet" href="{% static 'css/landing.css' %}">
 </head>
 <body class="bg-[var(--paper)] text-[var(--ink)] font-body antialiased">
 
