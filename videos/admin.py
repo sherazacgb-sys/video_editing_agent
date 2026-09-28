@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import VideoJob, UploadedAsset, GuestFeedback, GuestIntake
+from .models import VideoJob, UploadedAsset, GuestFeedback, GuestIntake, MonthlyUsage
 from chat.models import ChatSession
 
 
@@ -42,15 +42,29 @@ class VideoJobAdmin(admin.ModelAdmin):
 class GuestFeedbackAdmin(admin.ModelAdmin):
     # Read-only browse list — feedback is submitted once by a guest and never
     # edited afterward, so there's nothing for an admin to change here.
-    list_display = ('id', 'rating', 'guest_id', 'job', 'created_at')
-    list_filter = ('rating',)
-    readonly_fields = ('job', 'guest_id', 'rating', 'comment', 'created_at')
+    list_display = ('id', 'rating', 'guest_id', 'job', 'created_at', 'anonymised')
+    list_filter = ('rating', 'anonymised')
+    readonly_fields = ('job', 'guest_id', 'rating', 'comment', 'created_at', 'anonymised')
 
 
 @admin.register(GuestIntake)
 class GuestIntakeAdmin(admin.ModelAdmin):
     # Read-only browse list — same reasoning as GuestFeedbackAdmin: submitted
     # once on the login page and never edited afterward.
-    list_display = ('id', 'guest_id', 'looking_for_engineer', 'referral_source', 'created_at')
-    list_filter = ('looking_for_engineer',)
-    readonly_fields = ('guest_id', 'referral_source', 'use_case', 'looking_for_engineer', 'created_at')
+    list_display = ('id', 'guest_id', 'looking_for_engineer', 'referral_source', 'created_at', 'anonymised')
+    list_filter = ('looking_for_engineer', 'anonymised')
+    readonly_fields = ('guest_id', 'referral_source', 'use_case', 'looking_for_engineer', 'created_at', 'anonymised')
+
+
+@admin.register(MonthlyUsage)
+class MonthlyUsageAdmin(admin.ModelAdmin):
+    # Read-only trend table: rows are only ever written by purge_guest_jobs, so
+    # hand edits would just corrupt the history.
+    list_display = ('month', 'guest_jobs', 'transcribed', 'captioned', 'rendered', 'failed',
+                    'chat_messages', 'prompt_tokens', 'completion_tokens')
+
+    def has_add_permission(self, request):
+        return False  # totals come from the purge command, never typed in
+
+    def has_change_permission(self, request, obj=None):
+        return False  # view-only, see above

@@ -1,0 +1,28 @@
+{% comment %}
+Closing "Let's talk" band. Shared by the homepage and the About page so the
+ask (and the email address) is written once.
+{% endcomment %}
+  <!-- =========================================================================
+       8. Closing CTA - the client ask. Dark band on a light page, the one place the
+       page inverts, so the final ask is the highest-contrast thing on it. Recruiter
+       links (GitHub, LinkedIn, CV) live in the footer so the two don't compete.
+       ========================================================================= -->
+  <section id="contact" class="relative overflow-hidden" style="background: linear-gradient(120deg, #0e1120 0%, #1b2050 60%, #2b34e8 140%);">
+    <!-- Ruler texture at low opacity, tying the closing band back to the timeline motif -->
+    <div class="absolute inset-x-0 top-0 h-[5px] opacity-25 ruler" aria-hidden="true"></div>
+    <div class="shell py-16 lg:py-24 text-center reveal">
+      <h2 class="font-display text-3xl sm:text-[3rem] font-extrabold tracking-[-0.03em] leading-[1.02] text-white mb-5 max-w-3xl mx-auto">
+        Working on an AI system? Let's talk.
+      </h2>
+      <p class="text-white/65 text-[17px] leading-relaxed mb-9 max-w-xl mx-auto">
+        Whether it's an agent that needs to reach production or a manual process that should be automated, tell me about it.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href="mailto:sherazacgb@gmail.com"
+           class="inline-flex items-center gap-2 bg-[var(--signal)] hover:bg-[#ffd166] text-[var(--ink)] text-[15px] font-bold px-7 py-4 rounded-xl transition-colors">
+          Email me
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>

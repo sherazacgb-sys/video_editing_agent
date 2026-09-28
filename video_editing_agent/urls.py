@@ -36,6 +36,7 @@ urlpatterns = [
     # Django admin
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),  # login, logout, password reset
+    path('', include('portfolio.urls')),  # site root: the personal homepage
     path('', include('videos.urls')),
     path('', include('chat.urls')),
     # Registered directly (not via django.conf.urls.static.static(), which only adds

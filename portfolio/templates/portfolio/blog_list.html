@@ -1,0 +1,54 @@
+{% extends 'portfolio/base.html' %}
+
+{% comment %}
+/blog/: every published post, newest first, with filter chips by kind (?kind=...).
+Posts are written in Django admin (portfolio.Post); drafts never appear here.
+{% endcomment %}
+
+{% block title %}Blog - Sheraz Ali{% endblock %}
+{% block description %}Build logs, bug war stories and notes from building AI systems, by Sheraz Ali.{% endblock %}
+
+{% block content %}
+  <section class="hero-wash border-b border-[var(--line)]">
+    <div class="shell pt-16 pb-12 lg:pt-24 lg:pb-14">
+      <h1 class="font-display text-[2.75rem] sm:text-6xl lg:text-[4rem] font-extrabold tracking-[-0.035em] leading-[1.0] mb-5">Blog</h1>
+      <p class="text-[var(--ink-2)] text-[19px] leading-relaxed max-w-2xl mb-9">
+        Build logs, bug war stories and notes: what I learn building AI systems, written
+        down so I (and you) don't have to learn it twice.
+      </p>
+
+      <!-- Filter chips: plain links (?kind=...), so each filter is shareable and works
+           without JS. The active chip is filled blue; aria-current marks it for screen readers. -->
+      <nav class="flex flex-wrap gap-2" aria-label="Filter posts by kind">
+        <a href="{% url 'blog' %}"
+           class="px-4 py-2 rounded-full text-[13.5px] font-semibold border transition-colors {% if not active_kind %}bg-[var(--accent)] border-[var(--accent)] text-white{% else %}bg-[var(--surface)] border-[var(--line)] hover:border-[var(--accent)]{% endif %}"
+           {% if not active_kind %}aria-current="page"{% endif %}>All</a>
+        {% for value, label in kinds %}
+          <a href="{% url 'blog' %}?kind={{ value }}"
+             class="px-4 py-2 rounded-full text-[13.5px] font-semibold border transition-colors {% if active_kind == value %}bg-[var(--accent)] border-[var(--accent)] text-white{% else %}bg-[var(--surface)] border-[var(--line)] hover:border-[var(--accent)]{% endif %}"
+             {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </section>
+
+  <section class="border-b border-[var(--line)]">
+    <div class="shell py-14 lg:py-20">
+      {% if posts %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {% for post in posts %}
+            {% include 'portfolio/_post_card.html' %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <!-- Empty state: no posts yet overall, or none of this kind -->
+        <div class="card p-10 text-center max-w-xl mx-auto">
+          <p class="font-display text-[20px] font-bold mb-2">Nothing here yet</p>
+          <p class="text-[var(--ink-2)] text-[15px]">
+            {% if active_kind %}No posts of this kind yet. <a href="{% url 'blog' %}" class="text-[var(--accent)] underline underline-offset-2">See all posts</a>.{% else %}The first posts are being written. Check back soon.{% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

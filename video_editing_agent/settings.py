@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     'videos',
     'chat',
     'user_accounts',  # user profiles and subscription plans
+    'portfolio',  # public personal homepage (and later /about, case studies)
 ]
 
 MIDDLEWARE = [
@@ -213,8 +214,8 @@ CHAT_SESSION_TOKEN_BUDGET = int(os.environ.get('CHAT_SESSION_TOKEN_BUDGET', 1500
 # instead of an account, so they can upload/process a video without signing up.
 # Name of the cookie that carries a guest's identity (VideoJob.guest_id).
 GUEST_ID_COOKIE_NAME = 'guest_id'
-# Placeholders — both TTLs and the cookie age below are still TBD with the user;
-# these are reasonable stand-ins until an actual retention window is settled on.
+# These values are promised to visitors in the privacy notice
+# (portfolio/templates/portfolio/privacy.html, section 7) — change both together.
 # How long a guest's uploaded video/output files survive before purge_guest_jobs
 # deletes just the files and marks the job Status.EXPIRED (row + chat kept).
 GUEST_VIDEO_TTL_HOURS = 6
@@ -232,6 +233,11 @@ GUEST_ID_COOKIE_MAX_AGE = GUEST_CHAT_TTL_HOURS * 60 * 60
 # Guests have no account to rate-limit against, so this bounds per-browser storage
 # and (since guests get chat/agent access) LLM cost.
 GUEST_MAX_OPEN_JOBS = 3
+# After this many days purge_guest_jobs anonymises GuestIntake and GuestFeedback
+# rows instead of deleting them: guest id, free-text answers and the job link are
+# removed and the date is cut to the month, so the rest can be kept for
+# year-on-year trends (anonymous data falls outside UK GDPR's storage limit).
+GUEST_ANONYMISE_AFTER_DAYS = 365
 
 # settings.py
 DJ_CONTROL_ROOM_SETTINGS = {

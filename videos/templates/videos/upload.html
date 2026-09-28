@@ -7,7 +7,7 @@
     <p class="text-sm text-[var(--text-5)] mb-8 font-mono">Upload a video clip and get it back with burned-in captions.</p>
 
     <!-- Flashed via django.contrib.messages when the server rejects the upload (e.g. video
-         too long) — a redirect-then-render so refreshing this page never re-POSTs the file. -->
+         too long) - a redirect-then-render so refreshing this page never re-POSTs the file. -->
     {% if messages %}
     {% for message in messages %}
     <div class="mb-4 px-4 py-3 rounded-lg bg-[var(--danger-bg-soft)] border border-[var(--danger-border)] text-sm text-[var(--danger-text)] font-mono">
@@ -32,7 +32,7 @@
           <p class="text-sm text-[var(--text-4)] group-hover:text-[var(--text-2)] transition-colors text-center">
             <span class="font-semibold">Click to upload</span> or drag and drop
           </p>
-          <p class="text-xs text-[var(--text-6)] mt-1 font-mono text-center">MP4, MOV, WEBM, AVI — max {{ max_duration_minutes }} minutes, {{ max_size_mb }}MB</p>
+          <p class="text-xs text-[var(--text-6)] mt-1 font-mono text-center">MP4, MOV, WEBM, AVI - max {{ max_duration_minutes }} minutes, {{ max_size_mb }}MB</p>
         </div>
 
         <!-- Video thumbnail preview (hidden until file chosen) -->
@@ -79,7 +79,7 @@
         <input id="video-input" name="video" type="file" accept="video/*" class="hidden">
       </label>
 
-      <!-- Labeled "Continue" rather than "Upload" — picking the file already felt like the
+      <!-- Labeled "Continue" rather than "Upload" - picking the file already felt like the
            upload from the user's POV (it shows a preview); this is the step that actually
            sends it to the server and kicks off processing. -->
       <button type="submit"
@@ -88,6 +88,13 @@
               disabled>
         Continue
       </button>
+      <!-- Reminder at the moment of upload: applies to signed-in users too, who never
+           see the guest screen's agreement checkbox. -->
+      <p class="mt-3 text-xs text-[var(--text-4)] text-center leading-relaxed">
+        Research demo: please don't upload anything personal or confidential.
+        <a href="{% url 'terms' %}" target="_blank" rel="noopener" class="underline">Terms of use</a> ·
+        <a href="{% url 'privacy' %}" target="_blank" rel="noopener" class="underline">Privacy notice</a>
+      </p>
     </form>
   </div>
 </div>

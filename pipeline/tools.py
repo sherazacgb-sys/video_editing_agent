@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 from pipeline.captions import build_captions
 from pipeline.transcribe import transcribe, transcription_available
 
-# UI_MAP.md lives at the repo root (pipeline/tools.py -> pipeline/ -> repo root)
+# UI_MAP.md lives in production_docs/ (pipeline/tools.py -> pipeline/ -> repo root -> production_docs/)
 # and is tracked in git (unlike docs/) because read_ui_map reads it at runtime.
 _UI_MAP_PATH = Path(__file__).resolve().parent.parent /"production_docs"/"UI_MAP.md"
 

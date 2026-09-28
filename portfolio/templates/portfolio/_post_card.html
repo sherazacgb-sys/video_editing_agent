@@ -1,0 +1,15 @@
+{% comment %}
+One blog post card: kind label, title, summary, then date and reading time. Expects
+`post` in context. Shared by the homepage Blog section and /blog/, so both show posts
+the same way. Whole card is the link (with the title turning blue on hover).
+{% endcomment %}
+<a href="{{ post.get_absolute_url }}" class="card card-lift p-7 flex flex-col group">
+  <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-4">{{ post.get_kind_display }}</p>
+  <h3 class="font-display text-[18px] font-bold leading-snug mb-3 group-hover:text-[var(--accent)] transition-colors">{{ post.title }}</h3>
+  <p class="text-[14.5px] text-[var(--ink-2)] leading-relaxed mb-5">{{ post.summary }}</p>
+  <!-- Pushed to the bottom so cards in a row line up whatever the summary length -->
+  <p class="mt-auto font-mono text-[11px] text-[var(--ink-2)]">
+    <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:"j M Y" }}</time>
+    · {{ post.reading_minutes }} min read
+  </p>
+</a>

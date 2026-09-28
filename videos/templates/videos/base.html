@@ -41,6 +41,13 @@
   <!-- Sidebar -->
   <aside class="{% block aside_class %}w-64{% endblock %} flex-shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border)] flex flex-col">
     <div class="p-4 border-b border-[var(--border)]">
+      <!-- Way back to the public homepage. Small and grey so it doesn't compete with the
+           app logo below, which stays the in-app "home" (/upload/). Without it, every app
+           page was a dead end with no route back to the site. -->
+      <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 mb-2 text-xs font-mono text-[var(--text-5)] hover:text-[var(--accent-text)] transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        Sheraz Labs
+      </a>
       <a href="{% url 'upload' %}" class="flex items-center gap-2 text-[var(--accent-text)] font-semibold text-lg tracking-tight">
         <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-6 h-6 rounded flex-shrink-0">
         Video Editing Agent
@@ -140,7 +147,7 @@
           </svg>
         </button>
 
-        <!-- Dropdown panel — appears above the button, hidden by default -->
+        <!-- Dropdown panel - appears above the button, hidden by default -->
         <div id="profile-menu"
              class="absolute bottom-full left-3 right-3 mb-2 bg-[var(--bg-raised)] border border-[var(--border)]
                     rounded-xl shadow-xl overflow-hidden hidden">
@@ -172,7 +179,7 @@
                   Free Plan
                 </span>
               </div>
-              <!-- Upgrade link — points to # until a checkout flow exists -->
+              <!-- Upgrade link - points to # until a checkout flow exists -->
               <a href="#" class="text-xs text-[var(--accent-text)] hover:opacity-80 font-mono transition-colors">
                 Upgrade →
               </a>
@@ -212,7 +219,7 @@
           </div>
         </a>
       {% else %}
-        <!-- Not logged in, no guest identity either — shouldn't normally be reached since
+        <!-- Not logged in, no guest identity either - shouldn't normally be reached since
              identity_required sends a fresh visitor to the login page first, but kept as
              a safe fallback. -->
         <a href="{% url 'login' %}"
@@ -285,7 +292,7 @@
 
   <!-- Cookie consent banner: shown once per browser until Accept/Reject is clicked.
        The only cookies this app sets today (session, csrftoken, guest_id) are strictly
-       necessary, so Reject doesn't disable anything yet — the mechanism exists so a
+       necessary, so Reject doesn't disable anything yet - the mechanism exists so a
        choice is recorded before any non-essential (e.g. analytics) cookie is ever added. -->
   <div id="cookie-banner"
        class="hidden fixed bottom-0 inset-x-0 z-50 bg-[var(--bg-surface)] border-t border-[var(--border)]
@@ -293,6 +300,8 @@
     <p class="text-xs text-[var(--text-4)] font-mono flex-1">
       We use a strictly necessary cookie to keep your session (signed-in or guest) working.
       We don't use any analytics or advertising cookies.
+      <!-- Link so the full cookie list (privacy notice, section 8) is one click away -->
+      <a href="{% url 'privacy' %}" class="underline">Privacy notice</a>
     </p>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="setCookieConsent('rejected')"
@@ -307,7 +316,7 @@
     </div>
   </div>
   <script>
-    // Persists the Accept/Reject choice per-browser (no server round trip — nothing
+    // Persists the Accept/Reject choice per-browser (no server round trip - nothing
     // server-side depends on it yet) and hides the banner once a choice exists.
     function setCookieConsent(choice) {
       localStorage.setItem('cookie_consent', choice);

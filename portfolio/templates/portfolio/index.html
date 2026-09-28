@@ -1,0 +1,466 @@
+{% extends 'portfolio/base.html' %}
+{% load static %}
+
+{% comment %}
+Homepage. Head, nav, footer and scripts come from portfolio/base.html; this file only
+holds the page's sections. Title/description use base.html's defaults, which are the
+homepage's own.
+{% endcomment %}
+
+{% block content %}
+  <!-- =========================================================================
+       1. Hero - what the visitor gets first, who I am second, readable in five
+       seconds. The headline leads with the benefit (welcoming, eye-catching) and
+       the line under it introduces me. No "name · city" label above the headline:
+       it took space without adding anything the subtitle doesn't already say.
+       The illustration is an agent graph (request → agent → tools → deploy)
+       because that loop is the thing being sold, shown rather than claimed.
+       ========================================================================= -->
+  <section id="top" class="hero-wash border-b border-[var(--line)]">
+    <div class="shell py-14 lg:py-20">
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] gap-12 lg:gap-14 items-center">
+
+        <div class="hero-seq">
+          <h1 class="font-display text-[2.6rem] sm:text-6xl font-extrabold leading-[0.98] tracking-[-0.03em] mb-6">
+            From chatbots to pipelines - AI that actually
+            <span class="relative inline-block">
+              does the work.
+              <!-- Caption-yellow underline marks the promise that separates this from
+                   demo-ware: the systems run real work, not just demos. -->
+              <span class="absolute left-0 right-0 -bottom-1 h-[6px] rounded-full bg-[var(--signal)]" aria-hidden="true"></span>
+            </span>
+          </h1>
+          <!-- Subtitle: the personal intro moved here from the headline, so the name
+               still appears above the fold without competing with the promise. -->
+          <p class="text-[var(--ink-2)] text-[17px] leading-relaxed mb-8 max-w-xl">
+            I'm Sheraz, an AI engineer in London. I design, build and deploy agentic
+            systems, from first sketch to production on AWS.
+          </p>
+          <div class="flex flex-wrap items-center gap-3 mb-9">
+            <!-- Primary CTA: jumps to Products (shipped work), the strongest evidence -->
+            <a href="#products"
+               class="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-ink)] text-white text-[15px] font-semibold px-6 py-3.5 rounded-xl shadow-[var(--shadow-md)] transition-colors">
+              See my work
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 13l6 6 6-6"/></svg>
+            </a>
+            <a href="#contact"
+               class="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--line)] hover:border-[#c3cadd] text-[15px] font-semibold px-5 py-3.5 rounded-xl transition-colors">
+              Let's talk
+            </a>
+          </div>
+        </div>
+
+        {% comment %} Agent-graph illustration. Hand-drawn in HTML/CSS (no screenshots, per {% endcomment %}
+        {% comment %} the standing direction). Decorative only, so hidden from screen readers. {% endcomment %}
+        {% comment %} -------------------------------------------------------------- {% endcomment %}
+
+        <div class="hero-seq" aria-hidden="true">
+          <div class="card p-5 sm:p-7 shadow-[var(--shadow-lg)]">
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-6">agent graph</p>
+
+            <!-- Request node: where a user's plain-English ask enters the system -->
+            <div class="flex justify-center">
+              <div class="px-4 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-medium shadow-[var(--shadow-sm)]">
+                "caption this and add the logo"
+              </div>
+            </div>
+            <div class="mx-auto w-px h-6 bg-[var(--line)]"></div>
+
+            <!-- Agent node: the LLM that plans and calls tools, drawn as the hub -->
+            <div class="flex justify-center">
+              <div class="px-5 py-3 rounded-xl border-2 border-[var(--ink)] bg-[var(--surface)] text-center">
+                <p class="font-display font-bold text-[15px]">Agent</p>
+                <p class="font-mono text-[10px] text-[var(--ink-2)]">plans · calls tools · checks</p>
+              </div>
+            </div>
+            <div class="mx-auto w-px h-6 bg-[var(--line)]"></div>
+
+            <!-- Tool row: the concrete capabilities the agent can reach for -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <span class="text-center font-mono text-[11px] px-2 py-2 rounded-lg bg-[var(--paper)] border border-[var(--line)]">transcribe</span>
+              <span class="text-center font-mono text-[11px] px-2 py-2 rounded-lg bg-[var(--paper)] border border-[var(--line)]">caption</span>
+              <span class="text-center font-mono text-[11px] px-2 py-2 rounded-lg bg-[var(--paper)] border border-[var(--line)]">overlay</span>
+              <span class="text-center font-mono text-[11px] px-2 py-2 rounded-lg bg-[var(--paper)] border border-[var(--line)]">render</span>
+            </div>
+            <div class="mx-auto w-px h-6 bg-[var(--line)]"></div>
+
+            <!-- Deploy node: the part most agent demos skip, so it gets the "live" teal -->
+            <div class="flex justify-center">
+              <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--done)]/10 text-[var(--done)] text-[13px] font-semibold">
+                <span class="w-2 h-2 rounded-full bg-[var(--done)]"></span>
+                Deployed · AWS · Docker · nginx
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       2. Credentials strip: certifications and degrees as badges that drift past
+       in a loop. The list is written once here; the script at the bottom repeats
+       it to fill the width and clones it for a seamless loop, so without JS (or with
+       reduced motion) this renders as a plain, still, wrapping row of the five badges.
+       Blue = certification, yellow = degree.
+       ========================================================================= -->
+  <!-- No bottom border and a smaller bottom pad: the tools strip below continues the
+       same white band, so the two rows read as one "foundations + stack" block. -->
+  <section class="bg-[var(--surface)]" aria-label="Certifications and education">
+    <div class="pt-6 pb-3">
+      <!-- One-line label so the moving badges read as "credentials" at a glance.
+           Small mono uppercase, centred, so it reads as a caption for the strip rather
+           than a section heading (sections use big h2 headings instead). -->
+      <p class="text-center font-mono text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-4 px-5">
+        The foundations behind the builds
+      </p>
+      <div class="marquee" id="credentials">
+        <div class="marquee-track">
+          <ul class="marquee-group">
+          <li class="badge badge-cert">
+            <span class="badge-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 13.9 7 22l5-3 5 3-1.5-8.1"/></svg></span>
+            <span class="flex flex-col leading-tight">
+              <span class="font-semibold text-[14px] whitespace-nowrap">AWS Solutions Architect – Associate</span>
+              <span class="font-mono text-[10.5px] text-[var(--ink-2)] whitespace-nowrap">SAA-C03 · 2026</span>
+            </span>
+          </li>
+          <li class="badge badge-cert">
+            <span class="badge-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 13.9 7 22l5-3 5 3-1.5-8.1"/></svg></span>
+            <span class="flex flex-col leading-tight">
+              <span class="font-semibold text-[14px] whitespace-nowrap">Google Project Management</span>
+              <span class="font-mono text-[10.5px] text-[var(--ink-2)] whitespace-nowrap">Professional Certificate · Coursera</span>
+            </span>
+          </li>
+          <li class="badge badge-cert">
+            <span class="badge-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 13.9 7 22l5-3 5 3-1.5-8.1"/></svg></span>
+            <span class="flex flex-col leading-tight">
+              <span class="font-semibold text-[14px] whitespace-nowrap">Google Data Analytics</span>
+              <span class="font-mono text-[10.5px] text-[var(--ink-2)] whitespace-nowrap">Professional Certificate · Coursera</span>
+            </span>
+          </li>
+          <li class="badge badge-degree">
+            <span class="badge-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 9 12 4 2 9l10 5 10-5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/><path d="M22 9v6"/></svg></span>
+            <span class="flex flex-col leading-tight">
+              <span class="font-semibold text-[14px] whitespace-nowrap">MSc Data Science</span>
+              <span class="font-mono text-[10.5px] text-[var(--ink-2)] whitespace-nowrap">Kingston University London</span>
+            </span>
+          </li>
+          <li class="badge badge-degree">
+            <span class="badge-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 9 12 4 2 9l10 5 10-5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/><path d="M22 9v6"/></svg></span>
+            <span class="flex flex-col leading-tight">
+              <span class="font-semibold text-[14px] whitespace-nowrap">BS Computer Science</span>
+              <span class="font-mono text-[10.5px] text-[var(--ink-2)] whitespace-nowrap">University of Sialkot</span>
+            </span>
+          </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       2b. Tools strip - the stack behind the work, as white pills with each tool's
+       real logo (inline SVGs from Simple Icons, CC0, so nothing extra is loaded).
+       Only tools the CV or this project can back up. Plain white pills, unlike the
+       tinted credential badges, so the two strips don't compete; and it slides the
+       opposite way (.marquee-reverse), since two rows moving the same way read as
+       one glitchy block. Logos use the official brand colour, except where that is
+       too pale to read on white (LangGraph/LangChain use their dark teal, Linux and
+       AWS their dark logo variants). Groq has no Simple Icons logo, so it gets a
+       small brand-coloured letter chip. Whisper uses the OpenAI mark (its maker).
+       Same no-JS / reduced-motion fallback as the credentials strip.
+       Logo size is set as width/height attributes (and inline style on the Groq chip),
+       not only via .tool-logo in index.css, so a stale cached stylesheet can't collapse
+       the logos to zero width, which is what happened on first load.
+       ========================================================================= -->
+  <section class="bg-[var(--surface)] border-b border-[var(--line)]" aria-label="Tools and technologies">
+    <div class="pt-3 pb-7">
+      <!-- Label in the same style as the credentials label above, for a matched pair -->
+      <p class="text-center font-mono text-[11px] tracking-[0.18em] uppercase text-[var(--ink-2)] mb-4 px-5">
+        The stack I ship with
+      </p>
+      <div class="marquee marquee-reverse" id="stack">
+        <div class="marquee-track">
+          <ul class="marquee-group">
+          {% include 'portfolio/_tools_ai.html' %}
+          {% include 'portfolio/_tools_backend.html' %}
+          {% include 'portfolio/_tools_infra.html' %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       3. Products - finished, published things anyone can use today. Comes before
+       Case studies because shipped products are the strongest proof; experiments and
+       research follow. Only live products are listed; no "coming soon" cards.
+       ========================================================================= -->
+  {% comment %}
+  Products section temporarily hidden at the owner's request; kept here so it can be
+  restored as-is. Django comment tags (not an HTML comment) are used because the block
+  contains a static template tag, which Django would still parse inside an HTML comment.
+  {% endcomment %}
+  {% comment %}
+  <section id="products" class="border-b border-[var(--line)]">
+    <div class="shell py-16 lg:py-24 reveal">
+      <!-- Section heading: the section's name is the big heading and the one-liner is a
+           grey subtitle. Previously the name was an 11px label above a 40px sentence, so
+           the name read smaller than the section's own content. -->
+      <h2 class="font-display text-[2.5rem] sm:text-5xl lg:text-[3.25rem] font-extrabold tracking-[-0.03em] leading-[1.02] mb-4">Products</h2>
+      <p class="text-[var(--ink-2)] text-[18px] leading-relaxed max-w-2xl mb-12">Finished and published. Things you can use today.</p>
+
+      <!-- Work Box: published Android app. Wide two-column card (story + key features)
+           rather than a small tile, since it is currently the only product. Copy and the
+           500+ downloads figure come from its Google Play listing. No screenshots, per the
+           illustrations-not-screenshots direction; the app's own icon is the only image. -->
+      <div class="card overflow-hidden">
+        <div class="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+
+          <div class="p-7 sm:p-10">
+            <div class="flex items-center gap-4 mb-5">
+              <!-- App icon, copied from the Play listing into static/ so the page doesn't hotlink Google -->
+              <img src="{% static 'images/workbox_icon.png' %}" alt="" width="56" height="56" class="w-14 h-14 rounded-2xl border border-[var(--line)] shadow-[var(--shadow-sm)] bg-white">
+              <div>
+                <div class="flex flex-wrap items-center gap-2.5">
+                  <h3 class="font-display text-[26px] sm:text-[30px] font-extrabold leading-tight tracking-[-0.02em]">Work Box</h3>
+                  <span class="font-mono text-[9.5px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-[var(--done)]/10 text-[var(--done)] font-medium">Live on Google Play</span>
+                </div>
+                <p class="text-[13.5px] text-[var(--ink-2)]">Android app · Shift &amp; pay calendar</p>
+              </div>
+            </div>
+
+            <p class="text-[17px] font-semibold leading-snug mb-3">
+              Shift and pay tracker for hourly workers, gig workers and anyone with more than one job.
+            </p>
+            <p class="text-[var(--ink-2)] text-[15.5px] leading-relaxed mb-6">
+              Log shifts, manage every employer with its own rate, see exactly what you're owed,
+              and export payslips. Private by design: all data stays on the phone, with no
+              accounts and no cloud.
+            </p>
+
+            <!-- Quick facts as chips: real listing numbers, not marketing claims -->
+            <div class="flex flex-wrap gap-2 mb-8">
+              <span class="font-mono text-[11px] px-3 py-1.5 rounded-full bg-[var(--paper)] border border-[var(--line)]">500+ downloads</span>
+              <span class="font-mono text-[11px] px-3 py-1.5 rounded-full bg-[var(--paper)] border border-[var(--line)]">One-time Pro, no subscription</span>
+              <span class="font-mono text-[11px] px-3 py-1.5 rounded-full bg-[var(--paper)] border border-[var(--line)]">Offline, on-device data</span>
+            </div>
+
+            <!-- Store button: black, like Google's own badge, so it reads as "install" at a
+                 glance. No hl= param, so visitors get the listing in their own language. -->
+            <a href="https://play.google.com/store/apps/details?id=com.sheraz.work_box" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-3 bg-[var(--ink)] hover:bg-black text-white px-5 py-3 rounded-xl shadow-[var(--shadow-md)] transition-colors">
+              <!-- Google Play logo (Simple Icons, CC0) -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>
+              <span class="flex flex-col leading-tight text-left">
+                <span class="text-[10px] uppercase tracking-wide opacity-80">Get it on</span>
+                <span class="text-[16px] font-semibold">Google Play</span>
+              </span>
+            </a>
+          </div>
+
+          <!-- Right panel: the four things the app actually does, from the listing -->
+          <div class="bg-[var(--paper)] border-t lg:border-t-0 lg:border-l border-[var(--line)] p-7 sm:p-10">
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">What it does</p>
+            <ul class="space-y-4">
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[14.5px] leading-snug"><strong class="font-semibold">Shifts to the minute.</strong> <span class="text-[var(--ink-2)]">Start/end times, automatic break deductions, per-shift task lists.</span></span>
+              </li>
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[14.5px] leading-snug"><strong class="font-semibold">Every job in one place.</strong> <span class="text-[var(--ink-2)]">A profile per employer or client, each with its own hourly rate.</span></span>
+              </li>
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[14.5px] leading-snug"><strong class="font-semibold">Know what you're owed.</strong> <span class="text-[var(--ink-2)]">Real-time earnings, unpaid balance per workplace, partial payments.</span></span>
+              </li>
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[14.5px] leading-snug"><strong class="font-semibold">Reports in one tap.</strong> <span class="text-[var(--ink-2)]">PDF payslips and CSV exports for payroll, tax or invoicing.</span></span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endcomment %}
+
+  <!-- =========================================================================
+       4. Case studies - experiments and research: how AI can be used to do real work,
+       not finished products. The Video Editing Agent lives here (it isn't ready for
+       commercial use). Problem, architecture thumbnail, hard problems solved.
+       White band so sections still alternate after Products moved above it.
+       ========================================================================= -->
+  <section id="case-studies" class="bg-[var(--surface)] border-b border-[var(--line)]">
+    <div class="shell py-16 lg:py-24 reveal">
+      <!-- Section heading: the section's name is the big heading and the one-liner is a
+           grey subtitle. Previously the name was an 11px label above a 40px sentence, so
+           the name read smaller than the section's own content. -->
+      <h2 class="font-display text-[2.5rem] sm:text-5xl lg:text-[3.25rem] font-extrabold tracking-[-0.03em] leading-[1.02] mb-4">Case studies</h2>
+      <p class="text-[var(--ink-2)] text-[18px] leading-relaxed max-w-2xl mb-12">Experiments and research: what AI can do when it is built properly.</p>
+
+      <div class="card overflow-hidden">
+        <div class="grid lg:grid-cols-2">
+
+          <div class="p-7 sm:p-10">
+            <div class="flex items-center gap-3 mb-4">
+              <h3 class="font-display text-3xl sm:text-[2.5rem] font-extrabold leading-[1.02] tracking-[-0.025em]">Video Editing Agent</h3>
+              <!-- Blue "Research prototype" tag instead of green "Live": green is reserved for
+                   shipped products (Work Box), and this one isn't ready for commercial use. -->
+              <span class="font-mono text-[9.5px] uppercase tracking-wide px-2.5 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-medium whitespace-nowrap">Research prototype</span>
+            </div>
+
+            <!-- The problem, stated before the solution so the card reads as a case study -->
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-2">The problem</p>
+            <p class="text-[var(--ink-2)] text-[16px] leading-relaxed mb-7">
+              Captioning and overlaying a video means learning a timeline editor. The Video Editing Agent
+              replaces the timeline with a chat: upload footage, describe the change, and a
+              LangGraph agent transcribes, captions, places overlays and renders the file.
+            </p>
+
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-3">Hard problems solved</p>
+            <ul class="space-y-3.5 mb-9">
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[15px] leading-snug"><strong class="font-semibold">What's drawn matches what's reported.</strong> <span class="text-[var(--ink-2)]">One layout pass feeds both rendering and the agent's view of the frame, so it can't describe a caption somewhere it isn't.</span></span>
+              </li>
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[15px] leading-snug"><strong class="font-semibold">Concurrent agent writes.</strong> <span class="text-[var(--ink-2)]">Moved off SQLite to Postgres so per-call token accounting stops queueing behind a whole-file write lock.</span></span>
+              </li>
+              <li class="flex gap-3">
+                <span class="mt-[3px] w-4 h-4 rounded-full bg-[var(--done)]/12 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--done)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <span class="text-[15px] leading-snug"><strong class="font-semibold">No-signup access, safely.</strong> <span class="text-[var(--ink-2)]">Guest identities own jobs like accounts do, with timed retention that clears video first and chat later.</span></span>
+              </li>
+            </ul>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- Case-study page doesn't exist yet (planned /work/video-editing-agent); placeholder href for v1 -->
+              <a href="#"
+                 class="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-ink)] text-white text-[15px] font-semibold px-6 py-3.5 rounded-xl transition-colors">
+                Read case study
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+              </a>
+              <!-- Kept now that the Terms/Privacy pages and the guest agreement checkbox exist;
+                   worded "research demo" so nobody expects a finished product. -->
+              <a href="{% url 'upload' %}"
+                 class="inline-flex items-center gap-2 bg-[var(--surface)] border border-[var(--line)] hover:border-[#c3cadd] text-[15px] font-semibold px-5 py-3.5 rounded-xl transition-colors">
+                Try the research demo
+              </a>
+            </div>
+          </div>
+
+          <!-- C4 container diagram thumbnail: the real architecture, not a mock, since
+               "architecture to deploy" is the claim the hero makes. Opens full size. -->
+          <a href="{% static 'images/c4-container.png' %}" target="_blank" rel="noopener"
+             class="block bg-[var(--paper)] border-t lg:border-t-0 lg:border-l border-[var(--line)] p-6 sm:p-8 group">
+            <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-4">C4 · Container view</p>
+            <img src="{% static 'images/c4-container.png' %}"
+                 alt="C4 container diagram: nginx in front of a Django and LangGraph web app, with Postgres, media storage, Certbot, and external LLM and transcription APIs"
+                 class="w-full rounded-lg border border-[var(--line)] bg-white group-hover:shadow-[var(--shadow-md)] transition-shadow"
+                 loading="lazy">
+            <p class="text-[12.5px] text-[var(--ink-2)] mt-3">Click to open full size</p>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+  <!-- =========================================================================
+       5. Blog - Medium-style articles (build logs, war stories, notes), posted here
+       first and cross-posted to Medium. Shows the three newest published posts from
+       portfolio.Post (written in admin); the full list lives on /blog/. "Blog" rather
+       than "Docs" so it isn't mistaken for the product's help pages.
+       ========================================================================= -->
+  <section id="blog" class="border-b border-[var(--line)]">
+    <div class="shell py-16 lg:py-24 reveal">
+      <!-- Section heading: the section's name is the big heading and the one-liner is a
+           grey subtitle, same as every other section. -->
+      <h2 class="font-display text-[2.5rem] sm:text-5xl lg:text-[3.25rem] font-extrabold tracking-[-0.03em] leading-[1.02] mb-4">Blog</h2>
+      <p class="text-[var(--ink-2)] text-[18px] leading-relaxed max-w-2xl mb-12">Build logs and bug war stories.</p>
+
+      {% if latest_posts %}
+        <div class="grid md:grid-cols-3 gap-5">
+          {% for post in latest_posts %}
+            {% include 'portfolio/_post_card.html' %}
+          {% endfor %}
+        </div>
+        <!-- Way into the full archive, under the cards -->
+        <a href="{% url 'blog' %}" class="mt-8 inline-flex items-center gap-1.5 text-[14px] font-semibold text-[var(--accent)]">
+          All posts
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </a>
+      {% else %}
+        <!-- Nothing published yet: one honest line instead of cards that lead nowhere -->
+        <div class="card p-8 max-w-xl">
+          <p class="font-display text-[18px] font-bold mb-1.5">First posts coming soon</p>
+          <p class="text-[var(--ink-2)] text-[15px]">Write-ups of real problems from building these systems are on the way.</p>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       6. About (short) - the human element in a few lines; the full story will live
+       on /about so a long bio doesn't push the proof further down.
+       ========================================================================= -->
+  <section id="about" class="bg-[var(--surface)] border-b border-[var(--line)]">
+    <div class="shell py-16 lg:py-24 reveal">
+      <div class="grid lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] gap-10 lg:gap-16 items-center">
+
+        <div>
+          <!-- Same big section heading as the rest of the page; no subtitle, since the
+               bio paragraph alongside already does that job. -->
+          <h2 class="font-display text-[2.5rem] sm:text-5xl lg:text-[3.25rem] font-extrabold tracking-[-0.03em] leading-[1.02] mb-8">About</h2>
+          <div class="flex items-center gap-4">
+            <!-- Round photo, same image as the About page intro; white ring + shadow so
+                 the dark backdrop sits cleanly on the white band -->
+            <img src="{% static 'images/sheraz.jpg' %}" alt="Sheraz Ali" width="432" height="432"
+                 class="w-20 h-20 rounded-full object-cover shrink-0 ring-4 ring-white shadow-[var(--shadow-md)]">
+            <div>
+              <p class="font-display text-[20px] font-bold leading-tight">Sheraz Ali</p>
+              <p class="text-[14px] text-[var(--ink-2)]">Agentic AI engineer, London</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[var(--ink-2)] text-[17px] leading-[1.75] mb-5">
+            I'm a systems thinker based in London. I started out running a small electronics store
+            while finishing a CS degree, built a loan platform in Django, and now design agentic AI
+            systems end to end - from the graph the agent runs on to the servers it's deployed to.
+          </p>
+          <!-- Second paragraph balances the text column against the photo/heading column -->
+          <p class="text-[var(--ink-2)] text-[17px] leading-[1.75] mb-5">
+            I care most about the parts that decide whether an AI system survives real users:
+            clear tools, costs that can't run away, and data that's deleted when it should be.
+          </p>
+          <!-- The full story, what I build, toolkit and timeline live on /about/ -->
+          <a href="{% url 'about' %}" class="inline-flex items-center gap-1.5 text-[14px] font-semibold text-[var(--accent)]">
+            More about me
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% include 'portfolio/_contact_cta.html' %}
+{% endblock %}

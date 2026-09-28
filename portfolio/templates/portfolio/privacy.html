@@ -1,0 +1,113 @@
+{% extends 'portfolio/legal_base.html' %}
+
+{% block title %}Privacy notice - Sheraz Labs{% endblock %}
+{% block description %}How sherazlabs.co.uk and the Video Editing Agent demo handle your data.{% endblock %}
+
+{% block document %}
+<!-- Privacy notice written to cover what UK GDPR Articles 13/14 require (who, what,
+     why, lawful basis, recipients, transfers, retention, rights, complaints). Every
+     retention figure below must match settings.py GUEST_* values (incl.
+     GUEST_ANONYMISE_AFTER_DAYS) and the hourly purge_guest_jobs cron job; change them together or this page becomes untrue. -->
+<p class="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ink-2)]" style="margin-bottom:.5rem">Last updated: 27 September 2026</p>
+<h1 class="font-display text-[2.25rem] sm:text-[2.75rem] font-extrabold tracking-[-0.03em] leading-[1.05] mb-6">Privacy notice</h1>
+
+<!-- Plain-English summary first, since most visitors won't read the full notice -->
+<div class="rounded-xl border border-[rgba(230,168,20,.45)] bg-[rgba(255,197,61,.14)] p-5 mb-8">
+  <p style="margin-bottom:.5rem"><strong>The short version.</strong> This is a personal, non-commercial site run by one person for experimentation and learning. The Video Editing Agent is a research demo, not a product.</p>
+  <p style="margin-bottom:0"><strong>Please do not upload anything personal or confidential</strong>: no videos of yourself or other people you can identify, no private documents, nothing you would not be happy to see on a public test server. Uploaded audio and text are sent to AI providers in the United States and China (details below).</p>
+</div>
+
+<h2>1. Who I am</h2>
+<p>This site (sherazlabs.co.uk) is run by <strong>Sheraz Ali</strong>, an individual based in London, United Kingdom. I am the "controller" of the personal data described here. I am not a company and I do not trade through this site.</p>
+<p>Contact for anything privacy-related: <a href="mailto:sherazacgb@gmail.com">sherazacgb@gmail.com</a></p>
+
+<h2>2. Who this site is for</h2>
+<p>The site and the demo are intended for people aged <strong>18 or over</strong>. If you are under 18, please do not use the demo or send me any information.</p>
+
+<h2>3. What I collect and why</h2>
+
+<h3>If you only read the homepage</h3>
+<ul>
+  <li>I do <strong>not</strong> use analytics, tracking or advertising tools, and the homepage sets no cookies.</li>
+  <li>Like any web server, mine records basic request logs (IP address, time, page requested, browser type) to keep the site running and secure.</li>
+  <li>Your browser loads fonts and styling code from Google Fonts, the Tailwind CSS CDN and jsDelivr. Those providers receive your IP address when it does so, under their own privacy policies.</li>
+</ul>
+
+<h3>If you use the Video Editing Agent demo</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>What</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Your answers when you continue as a guest (how you found the site, what you want to use it for, whether you are looking to hire an engineer)</td><td>To understand who uses the demo and what for</td></tr>
+    <tr><td>Files you upload (video, audio, images, PDFs) and the videos the demo produces</td><td>To do what you asked: transcribe, caption, overlay and render</td></tr>
+    <tr><td>The transcript of your upload, your chat messages, and a log of each AI request and response</td><td>To run the chat agent, and to debug it and keep costs under control</td></tr>
+    <tr><td>Feedback ratings and comments you choose to give</td><td>To improve the demo</td></tr>
+    <tr><td>A random guest ID stored in a cookie</td><td>So your jobs stay yours without an account</td></tr>
+  </tbody>
+</table>
+</div>
+<p>I do not use your data for marketing, I do not sell it, and I do not use it to make decisions about you. The AI only processes the content you give it to produce the video you asked for.</p>
+
+<h2>4. Lawful basis</h2>
+<p>I rely on <strong>legitimate interests</strong> (UK GDPR Article 6(1)(f)): running and securing a free experimental demo, understanding how it is used, and improving it. The data involved is limited, and you choose what to upload. You can object at any time (see section 9).</p>
+
+<h2>5. Who else receives your data</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Provider</th><th>What they receive</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td>Amazon Web Services</td><td>Everything above; hosts the server and database</td><td>London, UK (eu-west-2)</td></tr>
+    <tr><td>Groq</td><td>The audio from your upload, for speech-to-text</td><td>United States</td></tr>
+    <tr><td>DeepSeek</td><td>Your transcript, chat messages and the demo's instructions, to run the chat agent</td><td>China</td></tr>
+    <tr><td>Google Fonts, Tailwind CDN, jsDelivr</td><td>Your IP address and browser details when pages load</td><td>Various, incl. United States</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Each provider handles data under its own terms and privacy policy.</p>
+
+<h2>6. International transfers</h2>
+<p>Using the demo sends data to the <strong>United States</strong> (Groq) and <strong>China</strong> (DeepSeek). China is not covered by a UK "adequacy" decision, and I have no additional contractual safeguards in place with DeepSeek, so data sent there may not be protected to the standard you would get in the UK. That is the main reason I ask you <strong>not to upload anything personal</strong>. If you are not comfortable with this, please don't use the demo; the rest of the site sends nothing to these providers.</p>
+
+<h2>7. How long I keep it</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Data</th><th>Kept for</th></tr></thead>
+  <tbody>
+    <tr><td>Guest uploads and rendered videos</td><td>Deleted about 6 hours after upload</td></tr>
+    <tr><td>Guest jobs, transcripts, chat history and AI request logs</td><td>Deleted after 30 days</td></tr>
+    <tr><td>Guest ID cookie</td><td>Expires after 30 days</td></tr>
+    <tr><td>Guest sign-up answers and feedback</td><td>After 12 months, anonymised: your guest ID, your "what will you use it for" answer and any feedback comment are deleted, and the date is reduced to the month. What remains (where you heard about the site, whether you were hiring, star rating, month) is kept for long-term trends</td></tr>
+    <tr><td>Monthly usage totals (for example, number of uploads, renders, chat messages and AI usage in a month)</td><td>Kept indefinitely. These are counts only and contain nothing about you</td></tr>
+    <tr><td>Server request logs</td><td>Up to 30 days</td></tr>
+    <tr><td>Data held by Groq, DeepSeek and other providers</td><td>Set by their own retention policies</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Anonymised data and totals can no longer be linked to anyone, so they are not personal data and I keep them to see how the demo is used over time. Deletion and anonymisation run automatically on a schedule, so items may last up to about an hour past these times. Accounts (not currently open to the public) and their jobs are kept until the account is deleted.</p>
+
+<h2>8. Cookies and browser storage</h2>
+<p>I only use what is strictly necessary for the demo to work, so no consent is needed for these. There are no analytics or advertising cookies.</p>
+<ul>
+  <li><strong>guest_id</strong>: identifies your guest session so you can see your own jobs (30 days).</li>
+  <li><strong>sessionid</strong> and <strong>csrftoken</strong>: standard Django cookies that keep you signed in and protect forms from forgery.</li>
+  <li>Your browser's local storage keeps small settings on your device only: light/dark theme, your cookie-banner choice, which chat you were in, and whether you have already been asked for feedback. These are never sent to the server.</li>
+</ul>
+
+<h2>9. Your rights</h2>
+<p>Under UK data protection law you can ask me to:</p>
+<ul>
+  <li>give you a copy of your data (access)</li>
+  <li>correct it (rectification)</li>
+  <li>delete it (erasure)</li>
+  <li>limit how I use it (restriction)</li>
+  <li>stop using it (objection)</li>
+  <li>send it to you in a reusable format (portability)</li>
+</ul>
+<p>Email <a href="mailto:sherazacgb@gmail.com">sherazacgb@gmail.com</a>. Because guests have no account, please include roughly when you used the demo and the name of the file you uploaded so I can find your data. I will reply within one month. Most guest data is deleted automatically within 30 days anyway.</p>
+
+<h2>10. Complaints</h2>
+<p>If you are unhappy with how I handle your data, please contact me first. You also have the right to complain to the UK regulator, the Information Commissioner's Office: <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener">ico.org.uk/make-a-complaint</a>, telephone 0303 123 1113.</p>
+
+<h2>11. Changes</h2>
+<p>If what the site collects changes (for example, if I add visitor analytics), I will update this notice and the date at the top.</p>
+{% endblock %}

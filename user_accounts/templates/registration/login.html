@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in — Video Editing Agent</title>
+  <title>Sign in - Video Editing Agent</title>
   <script>
-    // Mirrors base.html's anti-flash init script — this page doesn't extend base.html,
+    // Mirrors base.html's anti-flash init script - this page doesn't extend base.html,
     // so it needs its own copy to respect the same per-browser theme choice.
     (function () {
       var saved = localStorage.getItem('theme');
@@ -20,6 +20,12 @@
 <body class="bg-[var(--bg-page)] text-[var(--text-1)] min-h-screen flex items-center justify-center font-sans">
 
   <div class="w-full max-w-sm">
+    <!-- Way back to the homepage for visitors who arrived via "Try the research demo"
+         and don't want to continue; this page is standalone, so base.html's link isn't here. -->
+    <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 mb-6 text-xs font-mono text-[var(--text-5)] hover:text-[var(--accent-text)] transition-colors">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      Back to Sheraz Labs
+    </a>
     <!-- Logo / brand -->
     <div class="text-center mb-8">
       <span class="text-[var(--accent-text)] font-semibold text-2xl tracking-tight">Video Editing Agent</span>
@@ -29,7 +35,7 @@
     <div class="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-6">
 
       {% comment %}
-      Sign-in form disabled for now — there's no working sign-up flow yet, so
+      Sign-in form disabled for now - there's no working sign-up flow yet, so
       there's no way for a visitor to have an account to sign in with. Kept
       here (not deleted) so it's a one-step re-enable once sign-up exists.
 
@@ -79,7 +85,7 @@
 
       {% if messages %}
         <!-- Server-side backstop errors from continue_as_guest (e.g. an intake
-             question left blank) — HTML `required` normally catches this first. -->
+             question left blank) - HTML `required` normally catches this first. -->
         {% for message in messages %}
           <p class="text-[var(--danger-text)] text-sm mb-4 bg-[var(--danger-bg-soft)] border border-[var(--danger-border)] rounded-lg px-3 py-2">
             {{ message }}
@@ -89,7 +95,7 @@
 
       <!-- Continue as guest: collects a short intake (referral source, intended use,
            hiring interest) then mints a guest_id cookie (videos.views.continue_as_guest)
-           — same `next` so it lands wherever sign-in would have. -->
+           - same `next` so it lands wherever sign-in would have. -->
       <form method="post" action="{% url 'continue_as_guest' %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
@@ -124,14 +130,28 @@
           </div>
         </div>
 
+        <!-- Agreement: an unticked, required checkbox rather than a passive "by continuing"
+             line, so each guest actively confirms 18+, the terms, and no personal content
+             before any intake data or upload exists. views.continue_as_guest re-checks it. -->
+        <label class="mt-5 flex items-start gap-2.5 text-xs text-[var(--text-4)] leading-relaxed">
+          <input type="checkbox" name="agree_terms" value="yes" required class="mt-0.5 accent-[#2f6fd6] shrink-0">
+          <span>
+            I'm 18 or over, I agree to the <a href="{% url 'terms' %}" target="_blank" rel="noopener" class="text-[#2f6fd6] underline">Terms of use</a>,
+            and I won't upload anything personal or confidential. See the
+            <a href="{% url 'privacy' %}" target="_blank" rel="noopener" class="text-[#2f6fd6] underline">Privacy notice</a>.
+          </span>
+        </label>
+
         <button type="submit"
-                class="mt-6 w-full bg-[#2f6fd6] hover:bg-[#2559ad] text-white text-sm font-semibold
+                class="mt-5 w-full bg-[#2f6fd6] hover:bg-[#2559ad] text-white text-sm font-semibold
                        py-2 rounded-lg transition-colors">
           Continue as guest
         </button>
       </form>
+      <!-- Matches the privacy notice's retention table (GUEST_VIDEO_TTL_HOURS); the old
+           "aren't saved" wording was inaccurate, since files do exist for a few hours. -->
       <p class="text-xs text-[var(--text-6)] font-mono text-center mt-3">
-        Guest videos aren't saved.
+        Guest uploads are deleted after about 6 hours.
       </p>
     </div>
   </div>
@@ -144,6 +164,8 @@
     <p class="text-xs text-[var(--text-6)] font-mono flex-1">
       We use a strictly necessary cookie to keep your session (signed-in or guest) working.
       We don't use any analytics or advertising cookies.
+      <!-- Link so the full cookie list (privacy notice, section 8) is one click away -->
+      <a href="{% url 'privacy' %}" class="underline">Privacy notice</a>
     </p>
     <div class="flex gap-2 flex-shrink-0">
       <button onclick="setCookieConsent('rejected')"

@@ -79,6 +79,11 @@ class GuestFeedback(models.Model):
     rating = models.PositiveSmallIntegerField()
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Set by purge_guest_jobs after GUEST_ANONYMISE_AFTER_DAYS once guest_id, job
+    # and comment are cleared and created_at is cut to the month. Needed as its own
+    # flag because a signed-in user's feedback already has guest_id=None, so a null
+    # guest_id can't mean "already anonymised".
+    anonymised = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
@@ -89,12 +94,17 @@ class GuestIntake(models.Model):
     # guest_id cookie (views.continue_as_guest) — the login page is guest-only
     # for now (no working sign-up yet), so this is the only account-adjacent
     # data captured about a visitor.
-    guest_id = models.UUIDField(db_index=True)
+    # Nullable so purge_guest_jobs can clear it when anonymising the row after
+    # GUEST_ANONYMISE_AFTER_DAYS (a random ID still links records to one person).
+    guest_id = models.UUIDField(null=True, blank=True, db_index=True)
     referral_source = models.CharField(max_length=255)
     use_case = models.TextField()
     # Recruiting/lead signal for the site owner, not an actual account permission.
     looking_for_engineer = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
+    # Set by purge_guest_jobs once guest_id and use_case are cleared and created_at
+    # is cut to the month; what's left is kept for trends.
+    anonymised = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
@@ -121,3 +131,30 @@ class UploadedAsset(models.Model):
 
     class Meta:
         ordering = ['uploaded_at']
+
+
+class MonthlyUsage(models.Model):
+    # Anonymous per-month totals of guest demo usage, written by purge_guest_jobs just
+    # before it deletes the underlying guest data, so month-on-month trends survive
+    # the 6h/30-day retention limits. Holds only counts: no ids, no content, nothing
+    # that points at a person. Months are the month the job was created in.
+    # Signed-in users' jobs are never purged, so they are not counted here; guest
+    # jobs a guest deletes themselves are not counted either.
+    month = models.DateField(unique=True)  # always the 1st of the month
+    # Counted in purge pass 1 (video expiry), while stage/status still describe the job.
+    guest_jobs = models.PositiveIntegerField(default=0)
+    transcribed = models.PositiveIntegerField(default=0)  # furthest stage reached: transcribed
+    captioned = models.PositiveIntegerField(default=0)    # furthest stage reached: captioned
+    rendered = models.PositiveIntegerField(default=0)     # furthest stage reached: rendered
+    failed = models.PositiveIntegerField(default=0)
+    # Counted in purge pass 2 (row deletion), once the chat can no longer grow.
+    chat_messages = models.PositiveIntegerField(default=0)
+    prompt_tokens = models.PositiveBigIntegerField(default=0)
+    completion_tokens = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-month']
+        verbose_name_plural = 'monthly usage'
+
+    def __str__(self):
+        return self.month.strftime('%B %Y')

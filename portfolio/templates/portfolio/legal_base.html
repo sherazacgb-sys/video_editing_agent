@@ -1,0 +1,38 @@
+{% extends 'portfolio/base.html' %}
+
+{% comment %}
+Shared wrapper for the privacy notice and terms of use. Adds the long-form prose styles
+and the narrow white "document" card; nav and footer come from base.html. Child pages
+fill the "document" block (not "content", which this file uses for the card).
+{% endcomment %}
+
+{% block extra_head %}
+  <style>
+    /* Long-form legal text styling, scoped to .legal so it can't leak into other markup.
+       Tailwind's reset strips heading/list/table styles, so they are restored here for
+       readable prose. */
+    .legal h2 { font-family: "Bricolage Grotesque", system-ui, sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.02em; margin: 2.75rem 0 .9rem; }
+    .legal h3 { font-weight: 600; font-size: 1.05rem; margin: 1.6rem 0 .5rem; }
+    .legal p, .legal li { color: var(--ink-2); font-size: 16px; line-height: 1.75; }
+    .legal p { margin-bottom: 1rem; }
+    .legal ul { list-style: disc; padding-left: 1.4rem; margin-bottom: 1rem; }
+    .legal li { margin-bottom: .35rem; }
+    .legal strong { color: var(--ink); font-weight: 600; }
+    .legal a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    .legal table { width: 100%; border-collapse: collapse; margin: .5rem 0 1.25rem; font-size: 14.5px; }
+    .legal th, .legal td { text-align: left; vertical-align: top; padding: .65rem .75rem; border-bottom: 1px solid var(--line); }
+    .legal th { font-weight: 600; background: var(--paper); }
+    .legal td { color: var(--ink-2); }
+    /* Tables scroll sideways on phones instead of squashing or widening the page */
+    .legal .table-wrap { overflow-x: auto; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <!-- Document body: narrow white sheet for comfortable reading line length -->
+  <main class="shell py-12 lg:py-16">
+    <article class="legal max-w-3xl mx-auto bg-[var(--surface)] border border-[var(--line)] rounded-2xl p-6 sm:p-10 lg:p-12">
+      {% block document %}{% endblock %}
+    </article>
+  </main>
+{% endblock %}

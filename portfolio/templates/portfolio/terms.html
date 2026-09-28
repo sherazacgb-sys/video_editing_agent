@@ -1,0 +1,75 @@
+{% extends 'portfolio/legal_base.html' %}
+
+{% block title %}Terms of use - Sheraz Labs{% endblock %}
+{% block description %}Terms for using sherazlabs.co.uk and the Video Editing Agent research demo.{% endblock %}
+
+{% block document %}
+<!-- Terms of use for a free, non-commercial research demo run by an individual.
+     Kept deliberately short and plain-English. Section 3 repeats the privacy
+     notice's "don't upload anything personal" ask, since this is where people
+     agree to rules about what they upload. -->
+<p class="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--ink-2)]" style="margin-bottom:.5rem">Last updated: 27 September 2026</p>
+<h1 class="font-display text-[2.25rem] sm:text-[2.75rem] font-extrabold tracking-[-0.03em] leading-[1.05] mb-6">Terms of use</h1>
+
+<!-- Plain-English summary first, same pattern as the privacy notice -->
+<div class="rounded-xl border border-[rgba(230,168,20,.45)] bg-[rgba(255,197,61,.14)] p-5 mb-8">
+  <p style="margin-bottom:0"><strong>The short version.</strong> The Video Editing Agent is a free research demo that I run for fun and experimentation. It may break, change or disappear at any time. Only upload content you have the right to use, <strong>never upload anything personal or confidential</strong>, and don't rely on it for anything important.</p>
+</div>
+
+<h2>1. About these terms</h2>
+<p>This site (sherazlabs.co.uk) is run by <strong>Sheraz Ali</strong>, an individual based in London, United Kingdom. These terms apply when you use the site and, in particular, the Video Editing Agent demo. By using the demo you agree to them. If you don't agree, please don't use it.</p>
+<p>How I handle your data is explained separately in the <a href="{% url 'privacy' %}">privacy notice</a>.</p>
+
+<h2>2. Who can use the demo</h2>
+<p>You must be <strong>18 or over</strong> to use the demo.</p>
+
+<h2>3. A research demo, not a product</h2>
+<ul>
+  <li>The demo is free and experimental. It is <strong>not a commercial service</strong> and is not intended for business or production use.</li>
+  <li>I may change it, limit it, take it offline or shut it down at any time, without notice.</li>
+  <li>Uploads, videos and chats are deleted automatically after short periods (see the privacy notice). <strong>Keep your own copy</strong> of anything you care about; the demo is not storage.</li>
+  <li>Usage limits apply, for example on how many jobs you can have open and how much you can chat.</li>
+</ul>
+
+<h2>4. What you upload</h2>
+<p>You keep ownership of what you upload. You give me permission to store and process it, including sending it to the AI providers listed in the privacy notice, only so the demo can do what you ask.</p>
+<p>You must only upload content that:</p>
+<ul>
+  <li>you own, or have permission to use in this way</li>
+  <li><strong>contains no personal information</strong> about you or anyone else: no identifiable faces or voices of real people, no names, contact details or private documents</li>
+  <li>is not confidential, and is nothing you would mind being processed on a public test server</li>
+  <li>is not illegal, harmful, abusive, sexually explicit, hateful, or infringing anyone else's rights</li>
+</ul>
+
+<h2>5. Acceptable use</h2>
+<p>Please don't:</p>
+<ul>
+  <li>try to break, overload, hack or probe the site, or get around its limits</li>
+  <li>use bots, scripts or automated tools to use the demo</li>
+  <li>use it to create anything unlawful, misleading or harmful, or to impersonate anyone</li>
+  <li>try to get the AI to reveal its instructions or misuse the providers behind it</li>
+</ul>
+<p>I can remove content or block access, without notice, if I think these terms are being broken or the demo is being misused.</p>
+
+<h2>6. AI output</h2>
+<p>Transcripts, captions and edits are produced by AI and <strong>can be wrong</strong>: misheard words, wrong timing, odd styling. Check the result before you use it anywhere. You are responsible for what you do with the output.</p>
+
+<h2>7. No guarantees</h2>
+<p>The site and the demo are provided "as is" and "as available". I don't promise that they will be available, error-free, secure, or suitable for any purpose.</p>
+
+<h2>8. Liability</h2>
+<p>Because the demo is free and experimental, to the extent the law allows I am not responsible for any loss or damage from using it, including lost or deleted content, lost time, or problems caused by AI output.</p>
+<p>Nothing in these terms limits liability that cannot legally be limited, including for death or personal injury caused by negligence, or for fraud, and nothing here affects your statutory rights.</p>
+
+<h2>9. The site itself</h2>
+<p>The site's text, design and code are mine unless stated otherwise. Tool and company names and logos belong to their owners. Links to other sites (such as Google Play, GitHub or LinkedIn) are for convenience; I'm not responsible for their content.</p>
+
+<h2>10. Changes</h2>
+<p>I may update these terms. The date at the top shows the latest version, and continuing to use the demo after a change means you accept the updated terms.</p>
+
+<h2>11. Law</h2>
+<p>These terms are governed by the law of England and Wales, and the courts of England and Wales have jurisdiction. If you live in Scotland or Northern Ireland, you can also bring a claim in your local courts.</p>
+
+<h2>12. Contact</h2>
+<p>Questions about these terms: <a href="mailto:sherazacgb@gmail.com">sherazacgb@gmail.com</a></p>
+{% endblock %}

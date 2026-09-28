@@ -89,6 +89,12 @@ def continue_as_guest(request):
             messages.error(request, 'Please answer all three questions to continue as a guest.')
             login_url = f"{reverse('login')}?next={next_url}"
             return redirect(login_url)
+        # Terms/18+/no-personal-content agreement checkbox; same backstop reasoning as
+        # above — no guest identity (or intake row) is created without it.
+        if request.POST.get('agree_terms') != 'yes':
+            messages.error(request, 'Please confirm you agree to the Terms of use to continue as a guest.')
+            login_url = f"{reverse('login')}?next={next_url}"
+            return redirect(login_url)
 
     response = redirect(next_url)
     if mint_identity:
@@ -158,14 +164,6 @@ def serve_media(request, path):
     response['Accept-Ranges'] = 'bytes'
     response['Content-Length'] = file_size
     return response
-
-
-def landing(request):
-    # Public SherazLabs homepage (Version 2) — deliberately has no @identity_required,
-    # since anyone (no account, no guest cookie) should be able to see it before
-    # ever entering the app. It only renders a static page for now; the actual
-    # upload flow lives at /upload/.
-    return render(request, 'videos/landing.html')
 
 
 @identity_required

@@ -22,7 +22,7 @@
       New Chat
     </button>
   </div>
-  <!-- Session token-budget bar — a hairline strip (no text label, so it costs no extra
+  <!-- Session token-budget bar - a hairline strip (no text label, so it costs no extra
        row) that fills as this conversation's cumulative LLM usage (chat/views.py's
        _session_tokens_used) approaches CHAT_SESSION_TOKEN_BUDGET. Exact numbers/percent
        are still available via the title tooltip on hover. -->
@@ -43,7 +43,7 @@
          class="flex-1 bg-[var(--bg-page)] text-[var(--text-2)] font-mono text-sm px-3 py-2 rounded-lg border border-[var(--border)] outline-none focus:border-[#2f6fd6] transition-colors"
          oninput="updateCharCounter()"
          onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }">
-  <!-- Send button doubles as the char-cap indicator: no more "N / 8000" text — instead
+  <!-- Send button doubles as the char-cap indicator: no more "N / 8000" text - instead
        #chat-send-fill rises inside the button like a water level as CHAT_MAX_MESSAGE_CHARS
        is approached (updateCharCounter() below). Exact numbers still available via the
        button's title tooltip on hover. -->
@@ -58,7 +58,7 @@
 {% endblock %}
 
 {% block content %}
-<!-- Skill cards for the Skills tab below — source of truth is USER_FACING_SKILLS in
+<!-- Skill cards for the Skills tab below - source of truth is USER_FACING_SKILLS in
      pipeline/tools.py; json_script safely serializes it for buildSkillsGrid() to read. -->
 {{ skills|json_script:"skills-data" }}
 <div class="flex flex-col min-h-full">
@@ -73,7 +73,7 @@
       </div>
     </div>
 
-    <!-- Manual feedback trigger — everyone (guest or signed-in), unlike the
+    <!-- Manual feedback trigger - everyone (guest or signed-in), unlike the
          auto-popup version which is guest-only (see IS_GUEST in the JS below).
          Opens the same right-docked modal, bypassing the once-per-job
          localStorage suppression since this is a deliberate click. -->
@@ -136,7 +136,7 @@
       {% else %}
       <!-- Guest video past GUEST_VIDEO_TTL_HOURS (see purge_guest_jobs): the file is gone
            but the row + chat history are kept until GUEST_CHAT_TTL_HOURS. No player, no
-           controls — nothing left to play or edit. -->
+           controls - nothing left to play or edit. -->
       <div class="flex-1 flex flex-col items-center justify-center text-center px-6">
         <p class="text-sm text-[var(--text-3)] font-mono mb-2">This video has expired and was removed.</p>
         <p class="text-xs text-[var(--text-6)] font-mono">Your chat history for this job is kept a bit longer.</p>
@@ -145,7 +145,7 @@
     </div>
 
     <!-- Right panel: Skills/Assets/Fonts/Welcome tabs (id kept as pipeline-panel/-body/-toggle
-         to avoid churning unrelated JS below — it's just the shared tab container, not Skills-specific) -->
+         to avoid churning unrelated JS below - it's just the shared tab container, not Skills-specific) -->
     <div id="pipeline-panel" class="flex-[2] bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col min-h-[240px]">
       <div class="flex items-center justify-between mb-3">
         <!-- Tab bar: switches which of the four bodies below (#tab-skills/#tab-assets/#tab-fonts/#tab-welcome) is shown -->
@@ -175,9 +175,9 @@
       <div id="pipeline-body" class="flex flex-col flex-1 min-h-0">
 
       <!-- Skills tab: what the agent can do, as clickable cards. Clicking one inserts its
-           starter prompt into the chat input (editable, not auto-sent) — populated by
+           starter prompt into the chat input (editable, not auto-sent) - populated by
            buildSkillsGrid() from #skills-data (USER_FACING_SKILLS in pipeline/tools.py).
-           No status/progress here — that's already shown per-turn in the chat via the
+           No status/progress here - that's already shown per-turn in the chat via the
            tool-name chips in appendMessage(). -->
       <div id="tab-skills" class="flex flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
         <p class="text-xs text-[var(--text-5)] font-mono mb-2">Click a skill to start it in the chat</p>
@@ -203,7 +203,7 @@
       <!-- Fonts tab: read-only preview grid, one card per _AVAILABLE_FONTS entry
            (pipeline/tools.py), each rendered in its own @font-face so you can see
            the typeface before naming it. Clicking a card inserts the font name
-           into #chat-input — filled in by buildFontLibrary() below. -->
+           into #chat-input - filled in by buildFontLibrary() below. -->
       <div id="tab-fonts" class="hidden flex-col flex-1 min-h-0 overflow-y-auto styled-scroll">
         <p class="text-xs text-[var(--text-5)] font-mono mb-2">Click a font to insert its name into the chat box</p>
         <div id="font-library" class="grid grid-cols-2 gap-2"></div>
@@ -229,7 +229,7 @@
 
 </div>
 
-<!-- Guest feedback modal: auto-shown once (per job, via localStorage — see
+<!-- Guest feedback modal: auto-shown once (per job, via localStorage - see
      maybeShowFeedbackModal() below) after a guest's video reaches a real result
      (stage captioned/rendered). True modal (dims the page) but docked to the
      right edge instead of centered, per the agreed design. Never shown to
@@ -240,7 +240,7 @@
       <p class="text-sm font-semibold text-[var(--text-1)] font-mono">How's it going so far?</p>
       <button onclick="closeFeedbackModal()" class="text-[var(--text-6)] hover:text-[var(--text-3)] text-lg leading-none" aria-label="Close">&times;</button>
     </div>
-    <p class="text-xs text-[var(--text-5)] font-mono">Quick, optional — helps us improve Video Editing Agent.</p>
+    <p class="text-xs text-[var(--text-5)] font-mono">Quick, optional - helps us improve Video Editing Agent.</p>
     <!-- 1-5 rating; buttons instead of a native <input type="range"> so each
          value is a single unambiguous click/tap. -->
     <div id="feedback-stars" class="flex gap-1">
@@ -261,11 +261,11 @@
 
 <script>
 const JOB_PK = {{ job.pk }};
-// Static snapshot from page load — purge_guest_jobs runs offline, so this can't change
+// Static snapshot from page load - purge_guest_jobs runs offline, so this can't change
 // mid-session; used to permanently lock chat once a guest's video has been purged
 // (see applyLockState below), independent of any particular session's own lock state.
 const JOB_STATUS = "{{ job.status }}";
-// Gates the feedback modal (see maybeShowFeedbackModal below) — it's guest-only,
+// Gates the feedback modal (see maybeShowFeedbackModal below) - it's guest-only,
 // mirroring the sidebar's Guest-xxxx label which is also driven off guest_id.
 const IS_GUEST = {% if guest_id %}true{% else %}false{% endif %};
 const CSRF_URL_RENDER = "{% url 'run_render' job.pk %}";
@@ -275,7 +275,7 @@ const CHAT_MAX_MESSAGE_CHARS = {{ chat_max_message_chars }};
 const CHAT_SESSION_TOKEN_BUDGET = {{ chat_session_token_budget }};
 
 let currentAssets = [];
-// Cache of loaded <img> elements for image assets, keyed by URL — drawFrame()
+// Cache of loaded <img> elements for image assets, keyed by URL - drawFrame()
 // runs on every video timeupdate, so images must already be loaded/decoded by
 // the time they're needed rather than re-fetched per frame.
 const imageAssetCache = {};
@@ -301,7 +301,7 @@ const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_TICKS = 60; // 2 min ceiling; agent rarely takes longer
 
 // toolsUsed: names of tools actually invoked to produce this reply (empty for
-// user messages, and empty for an assistant reply that called no tool at all —
+// user messages, and empty for an assistant reply that called no tool at all -
 // a reply describing a change with no chip is a sign it may not have happened).
 function appendMessage(role, text, toolsUsed) {
   const wrap = document.getElementById('chat-messages');
@@ -340,15 +340,15 @@ function setLoading(on) {
   if (input.dataset.locked === 'true') return;
   btn.disabled = on;
   input.disabled = on;
-  // Set the label span's text, not btn.textContent — the latter would replace
+  // Set the label span's text, not btn.textContent - the latter would replace
   // all of the button's children, including the #chat-send-fill span nested
   // inside it (this previously broke updateCharCounter() on every send).
   document.getElementById('chat-send-label').textContent = on ? '…' : 'Send';
 }
 
 // Permanent lock (vs setLoading's transient one) for a session the agent has
-// suspended — set via suspend_session on the backend (see chat/agent.py), or for
-// a job whose video has expired (reason 'expired' — see applyLockState below).
+// suspended - set via suspend_session on the backend (see chat/agent.py), or for
+// a job whose video has expired (reason 'expired' - see applyLockState below).
 function setChatLocked(on, reason) {
   const btn = document.getElementById('chat-send');
   const input = document.getElementById('chat-input');
@@ -358,14 +358,14 @@ function setChatLocked(on, reason) {
   if (!on) {
     input.placeholder = 'Tell the agent what to do…';
   } else if (reason === 'expired') {
-    input.placeholder = 'This video has expired — no further edits are possible';
+    input.placeholder = 'This video has expired - no further edits are possible';
   } else {
-    input.placeholder = 'This chat has been locked — start a New Chat to continue';
+    input.placeholder = 'This chat has been locked - start a New Chat to continue';
   }
 }
 
 // A job-level expired lock (video purged) always wins over per-session state, and
-// unlike session locks it can't be cleared by starting a New Chat — the video is
+// unlike session locks it can't be cleared by starting a New Chat - the video is
 // gone for good. Called instead of setChatLocked directly everywhere the chat's
 // lock state gets (re)computed, so the two lock reasons never fight each other.
 function applyLockState(sessionDisabled, sessionOverBudget) {
@@ -378,7 +378,7 @@ function applyLockState(sessionDisabled, sessionOverBudget) {
   }
 }
 
-// Water-fill level inside the Send button, mirroring settings.CHAT_MAX_MESSAGE_CHARS —
+// Water-fill level inside the Send button, mirroring settings.CHAT_MAX_MESSAGE_CHARS -
 // replaces the old "N / cap" text counter so the cap doesn't cost any layout space.
 // Fill rises 0-90% in a neutral dark-blue tone, turns warning red from 90% up to the cap,
 // then snaps to full height + solid red once actually over it (sendChat() below blocks the
@@ -404,14 +404,14 @@ function updateCharCounter() {
 }
 
 // Thin progress bar for this session's cumulative LLM token usage vs
-// settings.CHAT_SESSION_TOKEN_BUDGET — same 90%/100% neutral/blue/red thresholds
+// settings.CHAT_SESSION_TOKEN_BUDGET - same 90%/100% neutral/blue/red thresholds
 // as the char counter above, so both indicators "mean" the same thing at a glance.
 function updateSessionBudgetBar(tokensUsed) {
   const pct = Math.min(100, (tokensUsed / CHAT_SESSION_TOKEN_BUDGET) * 100);
   const fill = document.getElementById('session-budget-fill');
   const row = document.getElementById('session-budget-row');
   fill.style.width = `${pct}%`;
-  // No on-page label (row is a hairline strip) — the percent/numbers live in the tooltip only.
+  // No on-page label (row is a hairline strip) - the percent/numbers live in the tooltip only.
   row.title = `${tokensUsed.toLocaleString()} / ${CHAT_SESSION_TOKEN_BUDGET.toLocaleString()} tokens used this conversation (${Math.round(pct)}%)`;
   fill.classList.remove('bg-[var(--text-6)]', 'bg-[#2f6fd6]', 'bg-red-500');
   if (tokensUsed >= CHAT_SESSION_TOKEN_BUDGET) {
@@ -475,8 +475,8 @@ async function startNewChat() {
   localStorage.setItem('chatSession_' + JOB_PK, sessionId);
   document.getElementById('chat-messages').innerHTML = '';
   displayedMessageCount = 0;
-  applyLockState(false, false); // brand new session — unlocked unless the job itself is expired
-  updateSessionBudgetBar(0); // brand new session — no LLM calls logged against it yet
+  applyLockState(false, false); // brand new session - unlocked unless the job itself is expired
+  updateSessionBudgetBar(0); // brand new session - no LLM calls logged against it yet
   setLoading(false);
   // Refresh the history list so the new session appears highlighted.
   await loadSessionList();
@@ -549,14 +549,14 @@ async function loadSessionList() {
 // If the page is loaded while an agent.invoke() is in progress on the server,
 // the last persisted message is the user's turn (no assistant reply yet).
 // startPolling() detects new messages every POLL_INTERVAL_MS and appends them,
-// so the UI self-recovers when the server finishes — no re-send required.
+// so the UI self-recovers when the server finishes - no re-send required.
 
 function startPolling() {
   pollCount = 0;
   pollTimer = setInterval(async () => {
     pollCount++;
     if (pollCount > POLL_MAX_TICKS) {
-      // Agent took too long — surface an error and give up.
+      // Agent took too long - surface an error and give up.
       stopPolling();
       setLoading(false);
       hideTyping();
@@ -577,9 +577,9 @@ function startPolling() {
         setLoading(false);
         await refreshJobState();
       } else {
-        showTyping(); // still waiting — keep the indicator at the bottom of the feed
+        showTyping(); // still waiting - keep the indicator at the bottom of the feed
       }
-    } catch (_) { /* network blip — keep polling */ }
+    } catch (_) { /* network blip - keep polling */ }
   }, POLL_INTERVAL_MS);
 }
 
@@ -620,7 +620,7 @@ async function sendChat() {
   const text = input.value.trim();
   if (!text || !sessionId) return;
   // Mirrors the server's settings.CHAT_MAX_MESSAGE_CHARS check (chat_message) client-side
-  // so an over-limit paste never round-trips at all — same message the server would 400 with.
+  // so an over-limit paste never round-trips at all - same message the server would 400 with.
   if (text.length > CHAT_MAX_MESSAGE_CHARS) {
     appendMessage('assistant', `Message is too long (${text.length} characters). Please shorten it to under ${CHAT_MAX_MESSAGE_CHARS} characters.`);
     return;
@@ -642,7 +642,7 @@ async function sendChat() {
     hideTyping();
     if (!res.ok) {
       // Surface the real reason (locked session, chat disabled, etc.) instead of
-      // silently falling back to a fake "Done." — data.reply is absent on errors.
+      // silently falling back to a fake "Done." - data.reply is absent on errors.
       appendMessage('assistant', data.error || 'Something went wrong. Please try again.');
     } else {
       appendMessage('assistant', data.reply || 'Done.', data.tools_used);
@@ -694,11 +694,11 @@ async function refreshJobState() {
 // ── Guest feedback modal ────────────────────────────────────────────────────
 
 // Namespaced per job so a guest with multiple videos gets asked once per video,
-// not just once ever — but never twice for the same one (survives refresh).
+// not just once ever - but never twice for the same one (survives refresh).
 const FEEDBACK_SHOWN_KEY = `feedback_shown_${JOB_PK}`;
 let feedbackRating = 0;
 
-// Called on every refreshJobState() (page load + after each chat turn — there's
+// Called on every refreshJobState() (page load + after each chat turn - there's
 // no separate polling loop for this, see refreshJobState's call sites). Fires the
 // first time this guest's job reaches a real result worth reacting to; export/
 // rendered is pro-only so guests realistically stop at captioned.
@@ -710,7 +710,7 @@ function maybeShowFeedbackModal(stage) {
   document.getElementById('feedback-modal').classList.remove('hidden');
 }
 
-// Manual trigger (header "Feedback" button) — available to everyone, unlike
+// Manual trigger (header "Feedback" button) - available to everyone, unlike
 // maybeShowFeedbackModal's guest-only auto-popup. Bypasses FEEDBACK_SHOWN_KEY
 // entirely since a deliberate click should always open it, and resets any
 // leftover rating/comment from a previous open so it doesn't silently resubmit.
@@ -735,7 +735,7 @@ function closeFeedbackModal() {
 }
 
 async function submitFeedback() {
-  if (!feedbackRating) { closeFeedbackModal(); return; } // no rating chosen — treat like "Maybe later"
+  if (!feedbackRating) { closeFeedbackModal(); return; } // no rating chosen - treat like "Maybe later"
   const comment = document.getElementById('feedback-comment').value.trim();
   try {
     await fetch(`/job/${JOB_PK}/feedback/`, {
@@ -743,7 +743,7 @@ async function submitFeedback() {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrf() },
       body: `rating=${feedbackRating}&comment=${encodeURIComponent(comment)}`,
     });
-  } catch (_) { /* best-effort — close regardless, not worth retry UI for this */ }
+  } catch (_) { /* best-effort - close regardless, not worth retry UI for this */ }
   closeFeedbackModal();
 }
 
@@ -764,7 +764,7 @@ function updateExportArea({ status, stage, progress }) {
 
   if (status === 'failed') {
     // Only render can fail through this button now (transcribe/captions failures
-    // are reported by the agent in chat instead) — Retry always re-fires render.
+    // are reported by the agent in chat instead) - Retry always re-fires render.
     area.innerHTML = `<div class="flex items-center gap-2">
       <span class="text-[var(--danger-text)] font-mono text-xs font-semibold">Export failed</span>
       <button onclick="runPipeline('render')"
@@ -777,15 +777,15 @@ function updateExportArea({ status, stage, progress }) {
     const pct = Math.max(0, Math.min(100, progress || 0));
     const fill = document.getElementById('export-progress-fill');
     if (fill) {
-      // Update width/text in place — rebuilding innerHTML every poll would
+      // Update width/text in place - rebuilding innerHTML every poll would
       // reset the CSS width transition and make the bar jump instead of glide.
       fill.style.width = pct + '%';
       document.querySelectorAll('.export-progress-label').forEach(el => { el.textContent = `Exporting… ${pct}%`; });
       return;
     }
     // The button becomes the bar: a blue fill growing left→right across a
-    // button-shaped track. Two stacked copies of the label — a muted one on the
-    // track and a black one clipped inside the fill — keep the text readable on
+    // button-shaped track. Two stacked copies of the label - a muted one on the
+    // track and a black one clipped inside the fill - keep the text readable on
     // both sides of the fill edge. duration-[2000ms] matches the 2s poll cadence
     // so the bar glides continuously between updates instead of stepping.
     area.innerHTML = `<div class="relative w-44 h-9 rounded-lg overflow-hidden bg-[var(--bg-hover)] border border-[var(--border-strong)]">
@@ -812,7 +812,7 @@ function updateExportArea({ status, stage, progress }) {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-// Not persisted across reloads — the Skills tab is always the one shown on page load.
+// Not persisted across reloads - the Skills tab is always the one shown on page load.
 let activeTab = 'skills';
 
 function switchTab(name) {
@@ -832,7 +832,7 @@ function switchTab(name) {
   else stopTipCarousel();
 }
 
-// Minimal HTML-escaping for text inserted via innerHTML below — transcript and
+// Minimal HTML-escaping for text inserted via innerHTML below - transcript and
 // caption text originate from Whisper output on a user-uploaded file, so they
 // must be treated as untrusted rather than injected as raw markup.
 function escapeHtml(str) {
@@ -841,7 +841,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Which Assets-tab sections are expanded, keyed by section id — kept outside
+// Which Assets-tab sections are expanded, keyed by section id - kept outside
 // updateAssetsTab() because that function rebuilds #assets-state's innerHTML on
 // every job_state poll, which would otherwise reset a section the user just opened.
 // Empty by default so every section starts collapsed.
@@ -878,7 +878,7 @@ function renderAssetSection(key, label, count, bodyHtml) {
   </div>`;
 }
 
-// One row for an asset already on the timeline — text-based assets show their
+// One row for an asset already on the timeline - text-based assets show their
 // text, image assets (no `content.text`) show the filename instead.
 function _assetRowHtml(a) {
   const label = a.type === 'image'
@@ -897,12 +897,12 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
   // Transcript is always its own section, placeholder until transcribe_video has populated job.transcript.
   const transcriptBody = transcript_text
     ? `<div class="bg-[var(--bg-page)] border border-[var(--border)] rounded-lg p-3 text-xs text-[var(--text-3)] font-mono leading-relaxed max-h-40 overflow-y-auto styled-scroll whitespace-pre-wrap">${escapeHtml(transcript_text)}</div>`
-    : `<p class="text-xs text-[var(--text-6)] font-mono">No transcript yet — run Transcribe on the Pipeline tab.</p>`;
+    : `<p class="text-xs text-[var(--text-6)] font-mono">No transcript yet - run Transcribe on the Pipeline tab.</p>`;
   let html = renderAssetSection('transcript', 'Transcript', null, transcriptBody);
 
-  // Uploaded-but-not-yet-placed files — just a reference list; ask the agent in
+  // Uploaded-but-not-yet-placed files - just a reference list; ask the agent in
   // chat to place one with insert_image_asset (no manual "insert" control here,
-  // consistent with how text overlays already work — chat is the only editor).
+  // consistent with how text overlays already work - chat is the only editor).
   const available = (uploaded_files || []).filter(f => !f.placed);
   if (available.length) {
     const body = `<div class="space-y-1.5">
@@ -915,7 +915,7 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
     html += renderAssetSection('uploaded', 'Uploaded Files', available.length, body);
   }
 
-  // Group timeline assets by their `type` field — one collapsible section per
+  // Group timeline assets by their `type` field - one collapsible section per
   // distinct type, so new asset kinds (e.g. image, once placed) automatically
   // get their own section with no template changes.
   const items = assets || [];
@@ -927,7 +927,7 @@ function updateAssetsTab({ transcript_text, assets, uploaded_files }) {
 
   const types = Object.keys(byType).sort();
   if (!types.length) {
-    html += renderAssetSection('assets-empty', 'Assets', 0, `<p class="text-xs text-[var(--text-6)] font-mono">No assets yet — build captions on the Pipeline tab.</p>`);
+    html += renderAssetSection('assets-empty', 'Assets', 0, `<p class="text-xs text-[var(--text-6)] font-mono">No assets yet - build captions on the Pipeline tab.</p>`);
   } else {
     for (const t of types) {
       const group = byType[t];
@@ -1010,7 +1010,7 @@ function stopTipCarousel() {
 
 // ── Pipeline AJAX ─────────────────────────────────────────────────────────────
 
-// transcribe/captions no longer go through here — they run via chat tools instead —
+// transcribe/captions no longer go through here - they run via chat tools instead -
 // so 'render' is the only step this is ever called with.
 async function runPipeline(step) {
   const url = step === 'render' ? CSRF_URL_RENDER : null;
@@ -1023,16 +1023,16 @@ async function runPipeline(step) {
     const sel = document.getElementById('export-resolution');
     fetchBody = new FormData();
     fetchBody.append('resolution', sel ? sel.value : 'original');
-    // Optimistically swap the Export button for the 0% progress bar right away —
+    // Optimistically swap the Export button for the 0% progress bar right away -
     // the first poll is 2s out, and replacing the button also stops a second
     // click from firing a duplicate render. Must happen after the resolution
     // select is read above, because the bar markup replaces the select.
     updateExportArea({ status: 'processing', stage: 'captioned', progress: 0 });
   }
 
-  // Fire the pipeline POST WITHOUT awaiting it. The server views are synchronous —
+  // Fire the pipeline POST WITHOUT awaiting it. The server views are synchronous -
   // they only respond once the whole step is done (for render, the full ffmpeg
-  // encode) — so awaiting here would hold back the poll loop below until after
+  // encode) - so awaiting here would hold back the poll loop below until after
   // completion, leaving the progress bar frozen at 0% until the download fired.
   // requestDone instead feeds the loop's exit test so we still notice the response.
   let requestDone = false;
@@ -1043,7 +1043,7 @@ async function runPipeline(step) {
     redirect: 'manual',
   }).finally(() => { requestDone = true; });
 
-  // Poll while the step runs. 450 × 2s ≈ 15 min ceiling — comfortably above the
+  // Poll while the step runs. 450 × 2s ≈ 15 min ceiling - comfortably above the
   // slowest render a max-length (10 min) source should need at medium preset.
   let attempts = 0;
   while (attempts < 450) {
@@ -1052,11 +1052,11 @@ async function runPipeline(step) {
     // A poll can land before the POST has flipped status to 'processing' (slow
     // connection). That snapshot is stale pre-step state: rendering it would
     // flash the wrong panel and un-swap the Export bar, and the exit test below
-    // would misread it as completion — skip it and try again.
+    // would misread it as completion - skip it and try again.
     if (!requestDone && state.status !== 'processing') { attempts++; continue; }
     updateAssetsTab(state);
     updateExportArea(state);
-    // Done only when the POST has settled AND the job has left 'processing' —
+    // Done only when the POST has settled AND the job has left 'processing' -
     // either signal alone can fire before the step's final state is saved.
     if (requestDone && state.status !== 'processing') {
       updateTimeline(state.assets);
@@ -1103,7 +1103,7 @@ function resizeCanvas() {
     }
   }
 
-  // Match drawing buffer to display size — no CSS/attribute mismatch
+  // Match drawing buffer to display size - no CSS/attribute mismatch
   canvas.width = fw;
   canvas.height = fh;
   canvas.style.width = fw + 'px';
@@ -1138,7 +1138,7 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
-// Rounded-rect path helper — mirrors the ctx.roundRect fallback used for the
+// Rounded-rect path helper - mirrors the ctx.roundRect fallback used for the
 // caption background box, needed here for image corner clipping/border too.
 function _roundRectPath(ctx, x, y, w, h, r) {
   if (ctx.roundRect) {
@@ -1173,7 +1173,7 @@ function drawFrame() {
       const url = asset.content.url;
       let img = imageAssetCache[url];
       if (!img) {
-        // Not loaded yet — kick off the load and skip drawing this frame;
+        // Not loaded yet - kick off the load and skip drawing this frame;
         // the browser's own onload triggers a redraw once it's ready.
         img = new Image();
         img.onload = drawFrame;
@@ -1238,7 +1238,7 @@ function drawFrame() {
 
     // Reels/TikTok-style word highlighting: only takes this path when the caption
     // carries per-word timestamps (asset.content.words, from build_captions) AND a
-    // highlight_color has been set — otherwise fall through to the plain block render below.
+    // highlight_color has been set - otherwise fall through to the plain block render below.
     const words = asset.content.words;
     if (style.highlight_color && words && words.length) {
       const spaceW = ctx.measureText(' ').width;
@@ -1409,7 +1409,7 @@ function updateTimeline(assets) {
       trackCol.appendChild(track);
     });
 
-    // Single playhead in trackCol — spans all tracks and inter-track gaps as one line
+    // Single playhead in trackCol - spans all tracks and inter-track gaps as one line
     const playhead = document.createElement('div');
     playhead.className = 'timeline-playhead';
     playhead.style.cssText = 'position:absolute;top:0;bottom:0;width:1.5px;background:#2f6fd6;z-index:10;pointer-events:none';
@@ -1476,7 +1476,7 @@ function formatTime(sec) {
 function togglePlayPause() {
   const video = document.getElementById('preview-video');
   if (!video) return;
-  // Toggle instead of tracking separate state — video.paused is the source of truth.
+  // Toggle instead of tracking separate state - video.paused is the source of truth.
   if (video.paused) video.play().catch(() => {});
   else video.pause();
 }
@@ -1567,7 +1567,7 @@ if (_previewVideo) {
 }
 
 // Canvas text only picks up an @font-face once the browser has actually
-// fetched it — and nothing triggers that fetch on its own, since no visible
+// fetched it - and nothing triggers that fetch on its own, since no visible
 // DOM text uses these families. document.fonts.load() forces the fetch for
 // every weight/style combo declared above; redraw once they land so an
 // overlay isn't stuck showing the fallback font from before they loaded.
@@ -1613,7 +1613,7 @@ function insertFontName(name) {
   input.setSelectionRange(cursor, cursor);
 }
 
-// Skill cards for the Skills tab — data comes from USER_FACING_SKILLS (pipeline/tools.py)
+// Skill cards for the Skills tab - data comes from USER_FACING_SKILLS (pipeline/tools.py)
 // via the #skills-data json_script tag, so labels/prompts can't drift from the actual tools.
 const SKILLS = JSON.parse(document.getElementById('skills-data').textContent);
 

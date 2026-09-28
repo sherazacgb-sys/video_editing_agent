@@ -1,4 +1,4 @@
-/* Landing page styles. Moved out of landing.html's inline <style> so the page's
+/* Homepage (index.html) styles. Moved out of index.html's inline <style> so the page's
    CSS is a cacheable static file like the rest of the app's styles. */
 
 /* ---------------------------------------------------------------------------
@@ -17,15 +17,15 @@
   --line: #e2e6f1;         /* hairline borders */
   --accent: #2b34e8;       /* interactive: CTAs, links, active states */
   --accent-ink: #1c23bd;   /* hover/pressed shade of the above */
-  --signal: #ffc53d;       /* playhead + scrubber ONLY — the signature colour */
+  --signal: #ffc53d;       /* caption-yellow highlight, used sparingly */
   --done: #00b894;         /* "live" / "rendered" badges only */
   --shadow-sm: 0 2px 8px -3px rgba(14, 17, 32, .12);
   --shadow-md: 0 18px 40px -24px rgba(14, 17, 32, .28);
   --shadow-lg: 0 40px 80px -40px rgba(14, 17, 32, .45);
 }
 
-/* Anchor jumps land below the sticky header+scrubber stack instead of underneath it. */
-html { scroll-behavior: smooth; scroll-padding-top: 108px; }
+/* Anchor jumps land below the sticky header instead of underneath it. */
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
 
 /* Wide shell for every section. Explicit max-width rather than a narrow centred
    column, per the standing "take the whole space there is available" direction. */
@@ -43,46 +43,6 @@ html { scroll-behavior: smooth; scroll-padding-top: 108px; }
 .card-lift { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
 .card-lift:hover, .card-lift:focus-visible { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: #cfd6ea; }
 
-/* Section label: small mono eyebrow + a hairline rule that runs to the edge of the
-   column, so each section opens like a labelled track rather than a floating caption. */
-.eyebrow { display: flex; align-items: center; gap: .75rem; font-family: "JetBrains Mono", ui-monospace, monospace; }
-.eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-/* --- Signature: the sticky sub-nav is a video scrubber -----------------------
-   Not decoration — it is the page's real scroll-progress indicator and its section
-   navigation at once. Ticks sit at each section's true document offset, so clicking
-   a tick scrubs to that part of the page the same way a playhead would. */
-.scrub-track { position: relative; height: 3px; background: var(--line); border-radius: 999px; }
-.scrub-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--signal); border-radius: 999px; }
-.scrub-head {
-  position: absolute; top: 50%; left: 0; width: 11px; height: 11px; border-radius: 999px;
-  background: var(--signal); border: 2px solid var(--surface);
-  box-shadow: 0 0 0 1px rgba(14, 17, 32, .12);
-  transform: translate(-50%, -50%); pointer-events: none;
-}
-/* Tick = one section marker. The hit area is deliberately taller than the visible
-   mark so it stays clickable on a 3px-tall track. */
-.scrub-tick {
-  position: absolute; top: 50%; transform: translate(-50%, -50%);
-  height: 18px; width: 18px; display: grid; place-items: center;
-  background: none; border: 0; padding: 0; cursor: pointer;
-}
-.scrub-tick::before {
-  content: ""; width: 5px; height: 5px; border-radius: 999px;
-  background: #c3cadd; transition: background .18s ease, transform .18s ease;
-}
-.scrub-tick:hover::before, .scrub-tick:focus-visible::before { background: var(--accent); transform: scale(1.5); }
-.scrub-tick[aria-current="true"]::before { background: var(--ink); transform: scale(1.5); }
-/* Section name shown above its tick on hover/focus — the tick's label, not a tooltip
-   for decoration, so keyboard users get it too. */
-.scrub-tick span {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-  white-space: nowrap; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-  background: var(--ink); color: #fff; padding: 3px 7px; border-radius: 5px;
-  opacity: 0; transition: opacity .18s ease; pointer-events: none;
-}
-.scrub-tick:hover span, .scrub-tick:focus-visible span { opacity: 1; }
-
 /* Timeline-ruler texture: a literal editor time ruler, reused as the thread between
    the pipeline's three stages so the divider carries meaning instead of decorating. */
 .ruler { background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 13px); }
@@ -98,7 +58,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 108px; }
 
 /* --- Scroll reveal ---------------------------------------------------------
    Scoped under `.js` so the no-JS render is complete and visible (see the head
-   script in landing.html). One quiet entrance per section; no per-element stagger beyond the hero. */
+   script in index.html). One quiet entrance per section; no per-element stagger beyond the hero. */
 .js .reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s ease, transform .55s ease; }
 .js .reveal.is-in { opacity: 1; transform: none; }
 
@@ -111,7 +71,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 108px; }
 .js .hero-seq > *:nth-child(5) { animation-delay: .28s; }
 
 /* Anyone who has asked the OS for less motion gets the finished page immediately:
-   no entrance animation, no smooth-scroll hijack on the scrubber's jumps. */
+   no entrance animation, no smooth scrolling on anchor jumps. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .js .reveal { opacity: 1; transform: none; transition: none; }
@@ -125,4 +85,56 @@ a:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+/* --- Badge marquees (credentials + tools) -----------------------------------
+   Badges drift right-to-left (tools strip: left-to-right) in a loop. Default (no JS / reduced motion) is a still,
+   centred, wrapping row; the script adds .is-moving once it has built the loop. */
+.marquee { overflow: hidden; padding-inline: 1.25rem; }
+.marquee-track { display: flex; width: max-content; margin-inline: auto; }
+.marquee-group {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem;
+  list-style: none; margin: 0; padding: 0;
+}
+.marquee.is-moving {
+  padding-inline: 0;
+  /* Fade the badges in and out at the edges so the loop has no hard cut. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+.marquee.is-moving .marquee-track { margin-inline: 0; animation: marquee 40s linear infinite; }
+/* Trailing gap equals the inner gap, so the join between the two copies is invisible. */
+.marquee.is-moving .marquee-group { flex-wrap: nowrap; padding-right: .75rem; flex-shrink: 0; }
+/* Hovering pauses it so a badge can actually be read. */
+.marquee.is-moving:hover .marquee-track { animation-play-state: paused; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* Badge: a tinted pill with a solid round icon chip. Tint and chip colour carry the
+   type (certification vs degree) so the strip reads at a glance. */
+.badge {
+  display: inline-flex; align-items: center; gap: .75rem;
+  padding: .45rem 1.25rem .45rem .45rem; border-radius: 999px; border: 1px solid;
+}
+.badge-icon { width: 2.25rem; height: 2.25rem; border-radius: 999px; display: grid; place-items: center; flex-shrink: 0; }
+.badge-cert { background: rgba(43, 52, 232, .07); border-color: rgba(43, 52, 232, .22); }
+.badge-cert .badge-icon { background: var(--accent); color: #fff; }
+.badge-degree { background: rgba(255, 197, 61, .16); border-color: rgba(230, 168, 20, .45); }
+.badge-degree .badge-icon { background: var(--signal); color: var(--ink); }
+
+/* Tools strip slides left-to-right: same keyframes played backwards, so the two
+   strips move in opposite directions and read as two rows, not one block. */
+.marquee.is-moving.marquee-reverse .marquee-track { animation-direction: reverse; }
+
+/* Tool badge: plain white pill with the tool's brand-coloured logo. Deliberately
+   quieter than the tinted credential badges, so certifications stay the headline. */
+.badge-tool { background: #fff; border-color: var(--line); gap: .6rem; padding: .55rem 1.1rem .55rem .9rem; }
+.tool-logo { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+/* Letter chip for tools with no Simple Icons logo (Groq), sized to match the SVGs. */
+.tool-initial {
+  border-radius: 999px; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: .8rem; line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none !important; }
 }

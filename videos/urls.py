@@ -4,7 +4,6 @@ from . import views
 urlpatterns = [
     # Public SherazLabs homepage (Version 2) — no identity gate, lives outside the
     # sidebar app-shell. The upload flow itself moved to /upload/ below.
-    path('', views.landing, name='landing'),
     path('upload/', views.upload, name='upload'),
     path('guest/continue/', views.continue_as_guest, name='continue_as_guest'),
     path('job/<int:pk>/', views.job_detail, name='job_detail'),

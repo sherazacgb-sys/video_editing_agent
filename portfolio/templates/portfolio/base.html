@@ -1,0 +1,278 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Each page sets its own title and description; the defaults are the homepage's -->
+  <title>{% block title %}Home{% endblock %}</title>
+  <meta name="description" content="{% block description %}I'm Sheraz, a London-based engineer building production agentic AI systems: LangGraph agents, from architecture to deploy on AWS.{% endblock %}">
+
+  <link rel="icon" type="image/png" href="{% static 'images/sherazlabs_favicon.png' %}">
+
+  <script>
+    // Marks the document as JS-capable before first paint. Every scroll-reveal rule is
+    // scoped under `.js`, so a visitor without JS gets the fully visible page instead of
+    // a blank one waiting for an IntersectionObserver that will never run.
+    document.documentElement.classList.add('js');
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Bricolage Grotesque carries the page's personality in headlines only; Inter stays
+       for body prose where plain legibility matters more than character; JetBrains Mono
+       is the utility face for labels and small metadata. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    // Registers the three faces as Tailwind utilities so the markup stays declarative
+    // rather than repeating font-family declarations in inline styles.
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Bricolage Grotesque"', '"Space Grotesk"', 'system-ui', 'sans-serif'],
+            body: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Site-wide styles (palette tokens, cards, marquees, reveal animations), served as a
+       cacheable static file -->
+  <link rel="stylesheet" href="{% static 'css/index.css' %}">
+  <!-- Per-page extras (e.g. the legal pages' prose styles) -->
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-[var(--paper)] text-[var(--ink)] font-body antialiased">
+  <!-- Shared layout for every public page (homepage, legal pages, and the coming
+       About and Blog pages): head, sticky nav, footer and the small scripts. Pulled out
+       of index.html so every page shows the same nav and footer instead of each keeping
+       its own copy that drifts. Nav/footer anchors are written as "/#section" so they
+       work from any page, not just the homepage. -->
+
+  <!-- =========================================================================
+       Sticky header. Stays pinned so the section links are always one click away.
+       ========================================================================= -->
+  <div class="sticky top-0 z-50 bg-[var(--surface)]/90 backdrop-blur border-b border-[var(--line)]">
+    <header class="shell flex items-center justify-between gap-6 py-3.5">
+      <a href="{% url 'index' %}" class="flex items-center gap-2.5 shrink-0">
+        <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-7 h-7 rounded-md">
+        <span class="font-display font-bold text-[17px] tracking-tight">Sheraz Labs</span>
+      </a>
+
+      <!-- Section links, pushed to the right edge by justify-between (the only other
+           header item is the wordmark). Hidden on small screens to keep the header to one line.
+           Full ink (black) rather than grey so the menu reads clearly; hover turns the link
+           accent blue, matching the small-screen menu, since it can no longer darken on hover. -->
+      <nav class="hidden lg:flex items-center gap-7 text-[13.5px] font-medium text-[var(--ink)]">
+        {% comment %} <a href="{% url 'index' %}#products" class="hover:text-[var(--accent)] transition-colors">Products</a> {% endcomment %}
+        <a href="{% url 'index' %}#case-studies" class="hover:text-[var(--accent)] transition-colors">Case studies</a>
+        <a href="{% url 'blog' %}" class="hover:text-[var(--accent)] transition-colors">Blog</a>
+        <a href="{% url 'about' %}" class="hover:text-[var(--accent)] transition-colors">About</a>
+      </nav>
+
+      <!-- Small-screen menu button. The wide nav above is hidden below lg, so without
+           this, phones would get no section links at all. Toggles #mobile-nav below. -->
+      <button type="button" id="menu-toggle" class="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-[var(--line)] text-[var(--ink)]"
+              aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
+        <!-- Hamburger icon; swapped for an X by the script while the menu is open -->
+        <svg id="menu-icon-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg id="menu-icon-close" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <!-- Small-screen dropdown: same four links as the wide nav, stacked. Lives inside the
+         sticky wrapper so it opens directly under the header wherever the visitor is. -->
+    <nav id="mobile-nav" class="lg:hidden hidden border-t border-[var(--line)]" aria-label="Sections">
+      <div class="shell py-2 flex flex-col text-[15px] font-medium">
+        <a href="{% url 'index' %}#products" class="py-2.5 hover:text-[var(--accent)]">Products</a>
+        <a href="{% url 'index' %}#case-studies" class="py-2.5 hover:text-[var(--accent)]">Case studies</a>
+        <a href="{% url 'blog' %}" class="py-2.5 hover:text-[var(--accent)]">Blog</a>
+        <a href="{% url 'about' %}" class="py-2.5 hover:text-[var(--accent)]">About</a>
+      </div>
+    </nav>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <!-- =========================================================================
+       Footer. Brand column (wordmark, one-line pitch, round social buttons) is the
+       widest; then site links; then Connect, where every link carries its icon so
+       the socials are recognisable at a glance rather than a plain list of words.
+       ========================================================================= -->
+  <footer class="bg-[var(--surface)] border-t border-[var(--line)]">
+    <div class="shell pt-14 pb-8">
+      <!-- Five columns on wide screens: brand, Explore, Products, Case studies, Connect.
+           Products and Case studies are separate so the footer mirrors the page's own
+           shipped-vs-research split. -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.3fr] gap-10 lg:gap-10 mb-12">
+
+        <!-- Brand column -->
+        <div>
+          <a href="{% url 'index' %}" class="flex items-center gap-2.5 mb-4">
+            <img src="{% static 'images/sherazlabs_favicon.png' %}" alt="" class="w-8 h-8 rounded-md">
+            <span class="font-display font-bold text-[18px] tracking-tight">Sheraz Labs</span>
+          </a>
+          <p class="text-[14px] text-[var(--ink-2)] leading-relaxed max-w-[32ch] mb-6">
+            Production agentic AI systems, from architecture to deploy. Based in London.
+          </p>
+          <!-- Round icon-only buttons: the quick-glance version of the Connect column.
+               aria-label carries the name since there's no visible text. -->
+          <div class="flex items-center gap-2.5">
+            <a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" aria-label="GitHub" class="inline-flex items-center justify-center w-10 h-10 rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--accent)] hover:border-[var(--accent)] hover:text-white transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1 .11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg></a>
+            <a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" aria-label="LinkedIn" class="inline-flex items-center justify-center w-10 h-10 rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--accent)] hover:border-[var(--accent)] hover:text-white transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.11 20.45H3.56V9h3.55v11.45z"/></svg></a>
+            <a href="mailto:sherazacgb@gmail.com" aria-label="Email" class="inline-flex items-center justify-center w-10 h-10 rounded-full border border-[var(--line)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--accent)] hover:border-[var(--accent)] hover:text-white transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></a>
+          </div>
+        </div>
+
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">Explore</p>
+          <ul class="space-y-3 text-[14px]">
+            <li><a href="{% url 'index' %}#products" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Products</a></li>
+            <li><a href="{% url 'index' %}#case-studies" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Case studies</a></li>
+            <li><a href="{% url 'blog' %}" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">Blog</a></li>
+            <li><a href="{% url 'about' %}" class="text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">About</a></li>
+          </ul>
+        </div>
+
+        <!-- Products: shipped things. Work Box goes straight to its Play Store listing,
+             tagged green "Live" like its card in the Products section. -->
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">Products</p>
+          <ul class="space-y-3 text-[14px]">
+            <li>
+              <a href="https://play.google.com/store/apps/details?id=com.sheraz.work_box" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">
+                Work Box
+                <span class="font-mono text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--done)]/10 text-[var(--done)] font-medium">Live</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Case studies: experiments/research. Links to the case-study card on this page
+             (no standalone case-study page yet), with the same blue "Prototype" tag. -->
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">Case studies</p>
+          <ul class="space-y-3 text-[14px]">
+            <li>
+              <a href="{% url 'index' %}#case-studies" class="inline-flex flex-wrap items-center gap-2 text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors">
+                Video Editing Agent
+                <span class="font-mono text-[9px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-medium">Prototype</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Connect: icon + label per row, so each channel is identifiable by logo and name -->
+        <div>
+          <p class="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ink-2)] mb-5">Connect</p>
+          <ul class="space-y-3 text-[14px]">
+            <li><a href="https://github.com/sherazacgb-sys" target="_blank" rel="noopener" class="group flex items-center gap-3 text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors"><span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.1-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1 .11-.78.42-1.32.76-1.62-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg></span>GitHub</a></li>
+            <li><a href="https://www.linkedin.com/in/sherazali5heraz" target="_blank" rel="noopener" class="group flex items-center gap-3 text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors"><span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.11 20.45H3.56V9h3.55v11.45z"/></svg></span>LinkedIn</a></li>
+            <li><a href="mailto:sherazacgb@gmail.com" class="group flex items-center gap-3 text-[var(--ink-2)] hover:text-[var(--accent)] transition-colors"><span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] transition-colors"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>sherazacgb@gmail.com</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Bottom bar: copyright (year from the server so it never goes stale), the two legal
+           pages (conventional footer spot, reachable from every scroll position), and back-to-top -->
+      <div class="pt-6 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-3 text-[13px] text-[var(--ink-2)]">
+        <span>&copy; {% now "Y" %} Sheraz Ali. Built with Django, deployed on AWS.</span>
+        <nav class="flex flex-wrap items-center gap-5" aria-label="Footer links">
+          <a href="{% url 'privacy' %}" class="hover:text-[var(--accent)] transition-colors">Privacy notice</a>
+          <a href="{% url 'terms' %}" class="hover:text-[var(--accent)] transition-colors">Terms of use</a>
+          <a href="#top" class="inline-flex items-center gap-1.5 font-medium hover:text-[var(--accent)] transition-colors">
+            Back to top
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6M6 12l6-6 6 6"/></svg>
+          </a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      // ---------------------------------------------------------------------
+      // Badge marquees (credentials + tools). Repeats each badge list until one copy is at least as
+      // wide as the viewport, then clones that copy so the track can slide exactly
+      // half its width and restart without a visible jump. Clones are aria-hidden
+      // so screen readers hear each badge once. Skipped under reduced motion,
+      // which leaves the still, wrapping row.
+      // ---------------------------------------------------------------------
+      // (Safe on pages without strips: the loop just finds no .marquee elements.)
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // Every strip (credentials, tools) gets the same treatment; direction is CSS-only.
+      Array.prototype.forEach.call(document.querySelectorAll('.marquee'), function (marquee) {
+        if (reduceMotion) return;
+        var track = marquee.querySelector('.marquee-track');
+        var group = marquee.querySelector('.marquee-group');
+        var originals = Array.prototype.slice.call(group.children);
+        marquee.classList.add('is-moving');               // switch to one non-wrapping row before measuring
+        // Fill one copy to the viewport width; capped so a zero-width edge case can't loop forever.
+        for (var i = 0; i < 8 && group.scrollWidth < marquee.clientWidth; i++) {
+          originals.forEach(function (li) {
+            var c = li.cloneNode(true);
+            c.setAttribute('aria-hidden', 'true');
+            group.appendChild(c);
+          });
+        }
+        var copy = group.cloneNode(true);                 // second copy for the seamless -50% loop
+        copy.setAttribute('aria-hidden', 'true');
+        track.appendChild(copy);
+        // Constant speed (~40px/s) whatever the list length, instead of a fixed duration.
+        track.style.animationDuration = (group.scrollWidth / 40) + 's';
+      });
+
+      // ---------------------------------------------------------------------
+      // Small-screen menu. Opens/closes the dropdown and keeps aria-expanded in
+      // sync so screen readers announce the state.
+      // ---------------------------------------------------------------------
+      var menuBtn = document.getElementById('menu-toggle');
+      var menu = document.getElementById('mobile-nav');
+      var iconOpen = document.getElementById('menu-icon-open');
+      var iconClose = document.getElementById('menu-icon-close');
+      function setMenu(open) {
+        menu.classList.toggle('hidden', !open);           // show/hide the dropdown
+        iconOpen.classList.toggle('hidden', open);        // hamburger when closed
+        iconClose.classList.toggle('hidden', !open);      // X when open
+        menuBtn.setAttribute('aria-expanded', String(open));
+        menuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      }
+      menuBtn.addEventListener('click', function () {
+        setMenu(menu.classList.contains('hidden'));
+      });
+      // Close after picking a link, otherwise the open menu covers the section it jumped to.
+      menu.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () { setMenu(false); });
+      });
+
+      // ---------------------------------------------------------------------
+      // Section reveal. One quiet entrance each; unobserved after firing so a
+      // section never re-animates when the visitor scrolls back up past it.
+      // ---------------------------------------------------------------------
+      var revealables = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-in');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { rootMargin: '0px 0px -12% 0px', threshold: 0.05 });
+        revealables.forEach(function (el) { io.observe(el); });
+      } else {
+        // No IntersectionObserver: show everything rather than leave the page blank.
+        revealables.forEach(function (el) { el.classList.add('is-in'); });
+      }
+    })();
+  </script>
+  {% block extra_scripts %}{% endblock %}
+
+</body>
+</html>
